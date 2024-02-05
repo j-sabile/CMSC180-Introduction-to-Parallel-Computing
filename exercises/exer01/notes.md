@@ -28,7 +28,7 @@ Y: [53.1,49.7,48.4,54.2,54.9,43.7,47.2,45.2,54.4,50.4]
 r = 0.47
 
 
-
+```
 func pearson_cor(X as matrix, y as vector, m as integer, n as integer) as vector
 begin
     define v(n) as vector;
@@ -42,6 +42,6 @@ begin
     end;
     pearson_cor:=v;
 end;
-
+```
 
 
