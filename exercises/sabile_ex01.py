@@ -3,7 +3,7 @@ def pearson_cor(x, y, m, n):
     for i in range(n):
         v.append(0)
         for j in range(m):
-            v[i] = (m * getXjy(x,y,m,j) - getXj(x,m,j) * getY(y, m))
+            v[i] = (m * getXjy(x,y,m,j) - getXj(x,m,j) * getY(y, m)) / ((m * getX2j(x,m,j) - getX(x)**2) * (m * getY2(y,m) - getY(y,m)**2)) **0.5
     return v
 
 def getXjy(x, y, m, j):
@@ -21,6 +21,40 @@ def getY(y, m):
     for i in range(m): sum += y[i]
     return sum
 
+def getX2j(x, m, j):
+    sum = 0
+    for i in range(m): sum += (x[i][j])**2
+    return sum
+
+def getX(x):
+    sum = 0
+    for i in x: 
+        for j in i: sum += j
+    return sum
+
+def getY2(y, m):
+    sum = 0
+    for i in range(m): sum += y[i] ** 2
+    return sum
+
+def getY(y, m):
+    sum = 0
+    for i in range(m): sum += y[i]
+    return sum
+
+# func pearson_cor(X as matrix, y as vector, m as integer, n as integer) as vector
+# begin
+#     define v(n) as vector;
+#     for i:=1 to n do
+#     begin
+#         v(i):=0;
+#         for j:=1 to m do
+#         begin
+#             v(i):= {see equation 1 above};
+#         end;
+#     end;
+#     pearson_cor:=v;
+# end;
 
 
 
