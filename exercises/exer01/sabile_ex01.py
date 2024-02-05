@@ -115,7 +115,7 @@ n = size
 
 
 start_time = time.time()
-ans = pearson_cor2(matrix, y, m, n)
+ans = pearson_cor(matrix, y, m, n)
 time_elapsed = time.time() - start_time
 print(f"time elapsed: {time_elapsed} seconds")
 # print(f"r={ans}")
