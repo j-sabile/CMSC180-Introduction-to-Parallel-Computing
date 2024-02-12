@@ -19,17 +19,17 @@ def sumY2(y,m):
 
 def sumX2(x,m,j):
     sum = 0
-    for i in range(m): sum += x[j][i]**2
+    for i in range(m): sum += x[i][j]**2
     return sum
 
 def sumXY(x,y,m,j):
     sum = 0
-    for i in range(m): sum += x[j][i] * y[i] 
+    for i in range(m): sum += x[i][j] * y[i] 
     return sum
 
 def sumX(x,m,j):
     sum = 0
-    for i in range(m): sum += x[j][i]
+    for i in range(m): sum += x[i][j]
     return sum
 
 def sumY(y,m):
@@ -49,7 +49,7 @@ def generateRandom(x, y):
 
 # TEST CASE
 # ANSWER: 0.47
-# matrix = [[3.63,3.02,3.82,3.42,3.59,2.87,3.03,3.46,3.36,3.3]]
+# matrix = [[3.63],[3.02],[3.82],[3.42],[3.59],[2.87],[3.03],[3.46],[3.36],[3.3]]
 # y = [53.1,49.7,48.4,54.2,54.9,43.7,47.2,45.2,54.4,50.4]
 # m = 10
 # n = 1
