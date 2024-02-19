@@ -19,21 +19,22 @@ int sumY2(int* y, int m) {
     return sum;
 }
 
-int sumX2(int** x, int m, int j) {
+int sumX2(int** x, int m, int j, int o, int threadNum) {
     int sum = 0;
-    for(int i=0; i<m; i++) sum += pow(x[i][j], 2);
+    for(int i=0; i<m; i++) sum += pow(x[i][threadNum*j+o], 2);
     return sum;
 }
 
-int sumXY(int** x, int *y, int m, int j) {
+int sumXY(int** x, int *y, int m, int j, int o, int threadNum) {
     int sum = 0;
-    for(int i=0; i<m; i++) sum += x[i][j] * y[i];
+    for(int i=0; i<m; i++) sum += x[i][threadNum*j+o] * y[i];
+    
     return sum;
 }
 
-int sumX(int** x, int m, int j) {
+int sumX(int** x, int m, int j, int o, int threadNum) {
     int sum = 0;
-    for(int i=0; i<m; i++) sum += x[i][j];
+    for(int i=0; i<m; i++) sum += x[i][threadNum*j+o];
     return sum;
 }
 
@@ -69,7 +70,7 @@ void* pearson_cor(void* argsTemp) {
     int threadNum = args->threadNum;
     float* v = args->v;
     for(int i=0; i<j; i++) {
-        v[i+threadNum*j] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*sumY2(y,m))-pow(sumY(y,m),2)),0.5);
+        v[i+threadNum*j] = (m*sumXY(X,y,m,j,i,threadNum)-sumX(X,m,j,i,threadNum)*sumY(y,m))/pow((m*sumX2(X,m,j,i,threadNum)-pow(sumX(X,m,j,i,threadNum),2))*((m*sumY2(y,m))-pow(sumY(y,m),2)),0.5);
     }
     pthread_exit(NULL);
     return NULL;
@@ -100,7 +101,7 @@ int main() {
     float* v = (float*)malloc(sizeof(float)*size);
 
     int** matrix = generateRandomMatrix(size);
-    int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
+    // int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
     int* y = generateRandomY(size);
     
     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
@@ -110,7 +111,7 @@ int main() {
     t = clock(); 
 
     for(int i=0; i<numOfThreads; i++) {
-        argsArray[i].X = subMatrices[i];
+        argsArray[i].X = matrix;
         argsArray[i].y = y;
         argsArray[i].colSize = size;
         argsArray[i].rowSize = size/numOfThreads;
