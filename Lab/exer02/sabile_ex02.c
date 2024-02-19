@@ -79,6 +79,7 @@ void* pearson_cor(void* argsTemp) {
     int* v = args->v;
     for(int i=0; i<j; i++) {
         printf("i=%d threadNum=%i j=%d\n", i, threadNum, j);
+        printf("%d\n", sumXY(X,y,m,i));
         int ans = pow((m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*sumY2(y,m))-pow(sumY(y,m),2))),0.5);
         printf("%d\n", ans);
         v[i+threadNum*j] =  ans;
@@ -138,12 +139,12 @@ int** readMatrix(int size) {
 
 int* readY(int size) {
     int* temp = (int*)malloc(sizeof(int)*size);
-    for(int i=0; i<size; i++) temp[i] = i;
+    for(int i=0; i<size; i++) temp[i] = i*i;
     return temp;
 }
 
 int main() {
-    int size = 3;
+    int size = 5;
     int numOfThreads = 1;
     int* v = (int*)malloc(sizeof(int)*size);
 
@@ -195,3 +196,7 @@ int main() {
 
     return 0;
 }
+
+
+
+// https://www.socscistatistics.com/tests/pearson/default2.aspx
