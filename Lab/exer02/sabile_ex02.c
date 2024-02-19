@@ -15,6 +15,8 @@ typedef struct ARG {
     int* y;
     int colSize;
     int rowSize;
+    int threadNum;
+    int* v;
 } args_st;
 
 
@@ -54,7 +56,7 @@ int** generateRandomMatrix(int size) {
     int** temp = (int**)malloc(sizeof(int*)*size);
     for(int i=0; i<size; i++) {
         temp[i] = (int*)malloc(sizeof(int)*size);
-        for (int j=0; j<size; j++) temp[i][j] = rand()%100;
+        for (int j=0; j<size; j++) temp[i][j] = rand()%100+1;
     }
     return temp;
 }
@@ -62,23 +64,26 @@ int** generateRandomMatrix(int size) {
 int* generateRandomY(int size){
     srand(time(NULL)); 
     int* temp = (int*)malloc(sizeof(int)*size);
-    for(int i=0; i<size; i++) temp[i] = rand()%100;
+    for(int i=0; i<size; i++) temp[i] = rand()%100+1;
     return temp;
 }
 
 
 void* pearson_cor(void* argsTemp) {
     args_st* args = (args_st*)argsTemp;
-    int* v = (int*)malloc(sizeof(int)*args->rowSize);
     int** X = args->X;
     int* y = args->y;
     int m = args->colSize;
     int j = args->rowSize;
-    for(int i=0; i<args->rowSize; i++) {
-        v[i] =  pow((m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*sumY2(y,m))-pow(sumY(y,m),2))),0.5);
+    int threadNum = args->threadNum;
+    int* v = args->v;
+    for(int i=0; i<j; i++) {
+        printf("i=%d threadNum=%i j=%d\n", i, threadNum, j);
+        int ans = pow((m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*sumY2(y,m))-pow(sumY(y,m),2))),0.5);
+        printf("%d\n", ans);
+        v[i+threadNum*j] =  ans;
     }
     pthread_exit(NULL); 
-    return v;
 }
 
 
@@ -122,26 +127,43 @@ void printSubmatrices(int*** subMatrices, int size, int numOfThreads) {
     }
 }
 
+int** readMatrix(int size) {
+    int** temp = (int**)malloc(sizeof(int*)*size);
+    for(int i=0; i<size; i++){
+        temp[i] = (int*)malloc(sizeof(int)*size);
+        for (int j=0; j<size; j++) temp[i][j] = i*size+j;
+    }
+    return temp;
+}
+
+int* readY(int size) {
+    int* temp = (int*)malloc(sizeof(int)*size);
+    for(int i=0; i<size; i++) temp[i] = i;
+    return temp;
+}
+
 int main() {
-    int size = 20000;
+    int size = 3;
     int numOfThreads = 1;
+    int* v = (int*)malloc(sizeof(int)*size);
 
-    int** matrix = generateRandomMatrix(size);
-
+    // int** matrix = generateRandomMatrix(size);
+    int** matrix = readMatrix(size);
     int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
 
-    // printf("PRINTING THE MATRIX\n");
-    // for(int i=0; i<size; i++) {
-    //     for(int j=0; j<size; j++) printf("%d ", matrix[i][j]);
-    //     printf("\n");
-    // }
-    // printSubmatrices(subMatrices, size, numOfThreads);
+    printf("PRINTING THE MATRIX\n");
+    for(int i=0; i<size; i++) {
+        for(int j=0; j<size; j++) printf("%d ", matrix[i][j]);
+        printf("\n");
+    }
+    printSubmatrices(subMatrices, size, numOfThreads);
 
 
-    int* y = generateRandomY(size);
-    // printf("PRINTING THE Y\n");
-    // for(int i=0; i<size; i++) printf("%d ", y[i]);
-    // printf("\n");
+    // int* y = generateRandomY(size);
+    int* y = readY(size);
+    printf("PRINTING THE Y\n");
+    for(int i=0; i<size; i++) printf("%d ", y[i]);
+    printf("\n");
 
     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
     args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
@@ -155,6 +177,8 @@ int main() {
         argsArray[i].y = y;
         argsArray[i].colSize = size;
         argsArray[i].rowSize = size/numOfThreads;
+        argsArray[i].threadNum = i;
+        argsArray[i].v = v;
         pthread_create(&tid[i], NULL, pearson_cor, (void*)&argsArray[i]);
     }
 
@@ -164,6 +188,10 @@ int main() {
     double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds 
  
     printf("time: %f seconds\n", time_taken); 
+
+    printf("Answer\n");
+    for(int i=0; i<size; i++) printf("%d ", v[i]);
+    printf("\n");
 
     return 0;
 }
