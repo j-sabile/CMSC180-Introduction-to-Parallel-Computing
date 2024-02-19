@@ -4,12 +4,6 @@
 #include<math.h>
 #include<time.h>
 
-// args for the test thread
-// typedef struct ARG {
-//     int* y;
-//     int size;
-// } args_st;
-
 typedef struct ARG {
     int** X;
     int* y;
@@ -18,8 +12,6 @@ typedef struct ARG {
     int threadNum;
     float* v;
 } args_st;
-
-
 
 int sumY2(int* y, int m) {
     int sum = 0;
@@ -68,7 +60,6 @@ int* generateRandomY(int size){
     return temp;
 }
 
-
 void* pearson_cor(void* argsTemp) {
     args_st* args = (args_st*)argsTemp;
     int** X = args->X;
@@ -78,34 +69,11 @@ void* pearson_cor(void* argsTemp) {
     int threadNum = args->threadNum;
     float* v = args->v;
     for(int i=0; i<j; i++) {
-        // if (i == 0) {
-        //     printf("i=%d threadNum=%i j=%d\n", i, threadNum, j);
-        //     printf("%d\n", (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m)));
-        //     printf("%d\n", (int)pow((m*sumX2(X,m,i)-(int)pow(sumX(X,m,i),2))*((m*sumY2(y,m))-(int)pow(sumY(y,m),2)),0.5));
-
-        // }
-        float ans = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*sumY2(y,m))-pow(sumY(y,m),2)),0.5);
-        // printf("%lf\n", ans);
-        v[i+threadNum*j] =  ans;
+        v[i+threadNum*j] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*sumY2(y,m))-pow(sumY(y,m),2)),0.5);
     }
     pthread_exit(NULL);
     return NULL;
 }
-
-
-// void* testThread(void* argMatrix, void* argSize) {
-//     int** matrix = (int**)argMatrix;
-//     int size = (int*)argSize
-// }
-
-// void* testThread(void* argsTemp) {
-//     // int** matrix = (int**)argMatrix;
-//     // int size = (int*)size;
-//     // printf("%d\n", *(int*)argSize);
-//     args_st* args = (args_st*)argsTemp;
-//     int* y = (int*)y;
-//     for (int i=0; i<args->size; i++) printf("%d ", args->y[i]);
-// }
 
 int*** splitMatrix(int** matrix, int numOfThreads, int size) {
     int*** temp = (int***)malloc(sizeof(int**)*numOfThreads);
@@ -120,66 +88,17 @@ int*** splitMatrix(int** matrix, int numOfThreads, int size) {
     return temp;
 }
 
-void printSubmatrices(int*** subMatrices, int size, int numOfThreads) {
-    int rowSize = size / numOfThreads;
-    printf("\nPRINTING SUBMATRICES\n");
-    for(int i=0; i<numOfThreads; i++) {
-        printf("SUBMATRIX %d\n", i+1);
-        for(int j=0; j<size; j++) {
-            for (int k=0; k<rowSize; k++) printf("%d ", subMatrices[i][j][k]);
-            printf("\n");
-        }
-        printf("\n");
-    }
-}
-
-int** readMatrix(int size) {
-    int test[] = {40,21,25,31,38,47};
-
-    int** temp = (int**)malloc(sizeof(int*)*size);
-    for(int i=0; i<size; i++){
-        temp[i] = (int*)malloc(sizeof(int)*size);
-        for (int j=0; j<size; j++) temp[i][j] = test[i];
-        // for (int j=0; j<size; j++) temp[i][j] = i*size+j;
-    }
-    return temp;
-}
-
-int* readY(int size) {
-    int test[] = {78,70,60,55,80,66};
-
-    int* temp = (int*)malloc(sizeof(int)*size);
-    for(int i=0; i<size; i++) temp[i] = test[i];
-    // for(int i=0; i<size; i++) temp[i] = i*i;
-    return temp;
-}
-
 int main() {
-    int size = 25000;
-    int numOfThreads = 1;
+    int size = 10000;
+    int numOfThreads = 8;
     float* v = (float*)malloc(sizeof(float)*size);
 
     int** matrix = generateRandomMatrix(size);
-    // int** matrix = readMatrix(size);
     int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-
-    // printf("PRINTING THE MATRIX\n");
-    // for(int i=0; i<size; i++) {
-    //     for(int j=0; j<size; j++) printf("%d ", matrix[i][j]);
-    //     printf("\n");
-    // }
-    // printSubmatrices(subMatrices, size, numOfThreads);
-
-
     int* y = generateRandomY(size);
-    // int* y = readY(size);
-    // printf("PRINTING THE Y\n");
-    // for(int i=0; i<size; i++) printf("%d ", y[i]);
-    // printf("\n");
-
+    
     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
     args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
-
 
     clock_t t; 
     t = clock(); 
@@ -196,17 +115,7 @@ int main() {
 
     for(int i=0; i<numOfThreads; i++) pthread_join(tid[i], NULL);
     
-    t = clock() - t; 
-    double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds 
- 
-    printf("time: %f seconds\n", time_taken); 
-
-    printf("Answer\n");
+    printf("time: %f seconds\n", ((double)clock() - t)/CLOCKS_PER_SEC); 
     // for(int i=0; i<size; i++) printf("%lf ", v[i]);
-    printf("\n");
     return 0;
 }
-
-
-
-// https://www.socscistatistics.com/tests/pearson/default2.aspx
