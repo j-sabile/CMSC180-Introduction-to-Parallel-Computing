@@ -82,15 +82,21 @@ int*** splitMatrix(int** matrix, int numOfThreads, int size) {
         temp[i] = (int**)malloc(sizeof(int*)*size);
         for(int j=0; j<size; j++) {
             temp[i][j] = (int*)malloc(sizeof(int)*size);
-            for (int k=0; k<rowSize; k++) temp[i][j][k] = matrix[j][k+rowSize*i];
+            for(int k=0; k<rowSize; k++) temp[i][j][k] = matrix[j][k+rowSize*i];
         }
     }
     return temp;
 }
 
 int main() {
-    int size = 10000;
-    int numOfThreads = 8;
+    int size;
+    int numOfThreads;
+
+    printf("Size: ");
+    scanf("%d", &size);
+    printf("# of threads: ");
+    scanf("%d", &numOfThreads);
+
     float* v = (float*)malloc(sizeof(float)*size);
 
     int** matrix = generateRandomMatrix(size);
