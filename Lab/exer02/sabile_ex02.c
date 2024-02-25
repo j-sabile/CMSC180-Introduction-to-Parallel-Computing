@@ -107,8 +107,8 @@ int main() {
     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
     args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
 
-    clock_t t; 
-    t = clock(); 
+    struct timespec start;
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     for(int i=0; i<numOfThreads; i++) {
         argsArray[i].X = matrix;
@@ -122,7 +122,9 @@ int main() {
 
     for(int i=0; i<numOfThreads; i++) pthread_join(tid[i], NULL);
     
-    printf("time: %f seconds\n", ((double)clock() - t)/CLOCKS_PER_SEC); 
+    struct timespec end;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
     // for(int i=0; i<size; i++) printf("%lf ", v[i]);
     return 0;
 }
