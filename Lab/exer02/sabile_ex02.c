@@ -33,7 +33,7 @@ int sumY2(int* y, int m) {
     return sum;
 }
 
-int sumX2(int** x, int m, int j) {
+long sumX2(int** x, int m, int j) {
     int sum = 0;
     for(int i=0; i<m; i++) sum += pow(x[i][j], 2);
     return sum;
@@ -92,7 +92,8 @@ void* pearson_cor(void* argsTemp) {
     int threadNum = args->threadNum;
     float* v = args->v;
     for(int i=0; i<j; i++) {
-        v[i+threadNum*j] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*resSumY2)-pow(sumY(y,m),2)),0.5);
+        printf("%d %ld %f\n", m, sumX2(X,m,i), pow(sumX(X,m,i),2));
+        v[i+threadNum*j] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*resSumY2)-resSumY_2),0.5);
     }
     pthread_exit(NULL);
     return NULL;
@@ -154,8 +155,12 @@ void* getSumOfSubCol(void* argsTemp) {
 }
 
 int main() {
+    char input;
     int size;
     int numOfThreads;
+
+    printf("Split by Column or Row (C/R): ");
+    scanf(" %c", &input);
 
     printf("Size: ");
     scanf("%d", &size);
@@ -165,95 +170,81 @@ int main() {
     float* v = (float*)malloc(sizeof(float)*size);
 
     int** matrix = generateRandomMatrix(size);
-    int*** subMatrices = splitMatrixByRow(matrix, numOfThreads, size);
     int* y = generateRandomY(size);
-    
-    // printSubmatrices(subMatrices, size, numOfThreads);
     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
-    args_st2 *argsArray = (args_st2*)malloc(sizeof(args_st2)*numOfThreads);
-
-    struct timespec start;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-
-    for(int i=0; i<numOfThreads; i++) {
-        argsArray[i].X = subMatrices[i];
-        argsArray[i].y = y;
-        argsArray[i].colSize = size/numOfThreads;
-        argsArray[i].rowSize = size;
-        argsArray[i].threadNum = i;
-        argsArray[i].resSumX = (long*)malloc(sizeof(long)*size);
-        argsArray[i].resSumX2 = (long*)malloc(sizeof(long)*size);
-        argsArray[i].resSumXY = (long*)malloc(sizeof(long)*size);
-        pthread_create(&tid[i], NULL, getSumOfSubCol, (void*)&argsArray[i]);
-    }
-
-    for(int i=0; i<numOfThreads; i++) pthread_join(tid[i], NULL);
     
-    long resSumY = sumY(y,size);
-    long resSumY2 = sumY2(y,size);
-    long resSumY_2 = pow(resSumY,2);
+    int*** subMatrices = splitMatrixByRow(matrix, numOfThreads, size);
+    // printSubmatrices(subMatrices, size, numOfThreads);
 
-    for(int i=0; i<size; i++){
-        long resSumX = 0;
-        long resSumX2 = 0;
-        long resSumXY = 0;
-        for(int j=0; j<numOfThreads; j++) resSumX += argsArray[j].resSumX[i];
-        for(int j=0; j<numOfThreads; j++) resSumX2 += argsArray[j].resSumX2[i];
-        for(int j=0; j<numOfThreads; j++) resSumXY += argsArray[j].resSumXY[i];
-        v[i] = (size*resSumXY-resSumX*resSumY)/pow((size*resSumX2-pow(resSumX,2))*(size*resSumY2-resSumY_2),0.5);
+    if (input == 'C') {
+        args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
+
+        struct timespec start;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        long resSumY = sumY(y,size);
+        long resSumY2 = sumY2(y,size);
+        long resSumY_2 = pow(resSumY,2);
+        printf("%ld %ld %ld\n", resSumY, resSumY2, resSumY_2);
+        for(int i=0; i<numOfThreads; i++) {
+            argsArray[i].X = subMatrices[i];
+            argsArray[i].y = y;
+            argsArray[i].resSumY = resSumY;
+            argsArray[i].resSumY2 = resSumY2;
+            argsArray[i].resSumY_2 = resSumY_2;
+            argsArray[i].colSize = size;
+            argsArray[i].rowSize = size/numOfThreads;
+            argsArray[i].threadNum = i;
+            argsArray[i].v = v;
+            pthread_create(&tid[i], NULL, pearson_cor, (void*)&argsArray[i]);
+        }
+
+        for(int i=0; i<numOfThreads; i++) pthread_join(tid[i], NULL);
+        
+        struct timespec end;
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
+        for(int i=0; i<size; i++) printf("%lf ", v[i]);
+        printf("\n");
+        return 0;
+    } else if (input == 'R') {
+        args_st2 *argsArray = (args_st2*)malloc(sizeof(args_st2)*numOfThreads);
+
+        struct timespec start;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        for(int i=0; i<numOfThreads; i++) {
+            argsArray[i].X = subMatrices[i];
+            argsArray[i].y = y;
+            argsArray[i].colSize = size/numOfThreads;
+            argsArray[i].rowSize = size;
+            argsArray[i].threadNum = i;
+            argsArray[i].resSumX = (long*)malloc(sizeof(long)*size);
+            argsArray[i].resSumX2 = (long*)malloc(sizeof(long)*size);
+            argsArray[i].resSumXY = (long*)malloc(sizeof(long)*size);
+            pthread_create(&tid[i], NULL, getSumOfSubCol, (void*)&argsArray[i]);
+        }
+
+        for(int i=0; i<numOfThreads; i++) pthread_join(tid[i], NULL);
+        
+        long resSumY = sumY(y,size);
+        long resSumY2 = sumY2(y,size);
+        long resSumY_2 = pow(resSumY,2);
+
+        for(int i=0; i<size; i++){
+            long resSumX = 0;
+            long resSumX2 = 0;
+            long resSumXY = 0;
+            for(int j=0; j<numOfThreads; j++) resSumX += argsArray[j].resSumX[i];
+            for(int j=0; j<numOfThreads; j++) resSumX2 += argsArray[j].resSumX2[i];
+            for(int j=0; j<numOfThreads; j++) resSumXY += argsArray[j].resSumXY[i];
+            v[i] = (size*resSumXY-resSumX*resSumY)/pow((size*resSumX2-pow(resSumX,2))*(size*resSumY2-resSumY_2),0.5);
+        }
+
+        struct timespec end;
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
+        for(int i=0; i<size; i++) printf("%lf ", v[i]);
+        return 0;
     }
-
-    struct timespec end;
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
-    for(int i=0; i<size; i++) printf("%lf ", v[i]);
-    return 0;
 }
-
-
-// int main() {
-//     int size;
-//     int numOfThreads;
-
-//     printf("Size: ");
-//     scanf("%d", &size);
-//     printf("# of threads: ");
-//     scanf("%d", &numOfThreads);
-
-//     float* v = (float*)malloc(sizeof(float)*size);
-
-//     int** matrix = generateRandomMatrix(size);
-//     int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-//     int* y = generateRandomY(size);
-    
-//     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
-//     args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
-
-//     struct timespec start;
-//     clock_gettime(CLOCK_MONOTONIC, &start);
-
-//     long resSumY = sumY(y,size);
-//     long resSumY2 = sumY2(y,size);
-//     long resSumY_2 = pow(resSumY,2);
-//     for(int i=0; i<numOfThreads; i++) {
-//         argsArray[i].X = subMatrices[i];
-//         argsArray[i].y = y;
-//         argsArray[i].resSumY = resSumY;
-//         argsArray[i].resSumY2 = resSumY2;
-//         argsArray[i].resSumY_2 = resSumY_2;
-//         argsArray[i].colSize = size;
-//         argsArray[i].rowSize = size/numOfThreads;
-//         argsArray[i].threadNum = i;
-//         argsArray[i].v = v;
-//         pthread_create(&tid[i], NULL, pearson_cor, (void*)&argsArray[i]);
-//     }
-
-//     for(int i=0; i<numOfThreads; i++) pthread_join(tid[i], NULL);
-    
-//     struct timespec end;
-//     clock_gettime(CLOCK_MONOTONIC, &end);
-//     printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
-//     for(int i=0; i<size; i++) printf("%lf ", v[i]);
-//     printf("\n");
-//     return 0;
-// }
