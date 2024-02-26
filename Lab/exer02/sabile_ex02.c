@@ -142,10 +142,12 @@ void* getSumOfSubCol(void* argsTemp) {
     int* resSumX2 = (int*)malloc(sizeof(int)*j);
     int* resSumXY = (int*)malloc(sizeof(int)*j);
     for(int i=0; i<j; i++) {
-        resSumX[i] = sumX(X,m,j);
-        resSumX2[i] = sumX2(X,m,j);
-        resSumXY[i] = sumXYModified(X,y,m,j,threadNum);
+        resSumX[i] = sumX(X,m,i);
+        resSumX2[i] = sumX2(X,m,i);
+        resSumXY[i] = sumXYModified(X,y,m,i,threadNum);
     }
+
+    printf("\n");
     pthread_exit(NULL);
     return NULL;
 }
@@ -178,6 +180,9 @@ int main() {
         argsArray[i].colSize = size/numOfThreads;
         argsArray[i].rowSize = size;
         argsArray[i].threadNum = i;
+        argsArray[i].resSumX = (int*)malloc(sizeof(int)*size);
+        argsArray[i].resSumX2 = (int*)malloc(sizeof(int)*size);
+        argsArray[i].resSumXY = (int*)malloc(sizeof(int)*size);
         pthread_create(&tid[i], NULL, getSumOfSubCol, (void*)&argsArray[i]);
     }
 
@@ -185,6 +190,9 @@ int main() {
     
     int resSumY = sumY(y,size);
     int resSumY2 = sumY2(y,size);
+
+    // printf("%d\n", argsArray[0].resSumX[0]);
+
     for(int i=0; i<size; i++){
         int resSumX = 0;
         int resSumX2 = 0;
