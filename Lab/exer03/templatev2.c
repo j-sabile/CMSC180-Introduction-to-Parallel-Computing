@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <math.h>
+#include <time.h>
 
 typedef struct ARG {
     int threadNum;
@@ -16,8 +17,6 @@ typedef struct ARG {
 #define print_error_then_terminate(en, msg) \
   do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
  
-int next_core = 1;
-
 void* threadStart(void* argsTemp) {
     args_st* args = (args_st*)argsTemp;
     
@@ -36,41 +35,31 @@ void* threadStart(void* argsTemp) {
     
     // sched_setaffinity: This function installs the cpusetsize bytes long affinity mask pointed to by cpuset for the process or thread with the ID pid. If successful the function returns zero and the scheduler will in future take the affinity information into account.
     const int set_result = sched_setaffinity(pid, sizeof(cpu_set_t), &cpuset);
-    if (set_result != 0) {
-    
-        print_error_then_terminate(set_result, "sched_setaffinity");
-    }
-    
+    if (set_result != 0) print_error_then_terminate(set_result, "sched_setaffinity");
     // Check what is the actual affinity mask that was assigned to the thread.
     // sched_getaffinity: This functions stores the CPU affinity mask for the process or thread with the ID pid in the cpusetsize bytes long bitmap pointed to by cpuset. If successful, the function always initializes all bits in the cpu_set_t object and returns zero.
     const int get_affinity = sched_getaffinity(pid, sizeof(cpu_set_t), &cpuset);
-    if (get_affinity != 0) {
-    
-        print_error_then_terminate(get_affinity, "sched_getaffinity");
-    }
-    
+    if (get_affinity != 0) print_error_then_terminate(get_affinity, "sched_getaffinity");
     // CPU_ISSET: This macro returns a nonzero value (true) if cpu is a member of the CPU set set, and zero (false) otherwise.
-    if (CPU_ISSET(core_id, &cpuset)) {
-    
-        fprintf(stdout, "Successfully set thread %d to affinity to CPU %d\n", pid, core_id);
-    } else {
-    
-        fprintf(stderr, "Failed to set thread %d to affinity to CPU %d\n", pid, core_id);
-    }
+    if (CPU_ISSET(core_id, &cpuset)) fprintf(stdout, "Successfully set thread %d to affinity to CPU %d\n", pid, core_id);
+    else fprintf(stderr, "Failed to set thread %d to affinity to CPU %d\n", pid, core_id);
 
     int cnt = 0;
-    for(int i=0; i<pow(10,9.5); i++) {
+    for(int i=0; i<pow(10,9); i++) {
         cnt++;
     }
     pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[]) {
-  int numOfThreads = 8;
+  int numOfThreads = 1;
   pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
   args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
 //   int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-  int num_cores = 2;
+  int num_cores = 1;
+
+  struct timespec start;
+  clock_gettime(CLOCK_MONOTONIC, &start);
 
   for(int i=0; i<numOfThreads; i++) {
     argsArray[i].threadNum = i;
@@ -81,6 +70,11 @@ int main(int argc, char *argv[]) {
   for(int i=0; i<numOfThreads; i++) {
     pthread_join(tid[i], NULL);
   }
+
+  struct timespec end;
+  clock_gettime(CLOCK_MONOTONIC, &end);
+  printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
+        
  
   return 0;
 }
