@@ -16,6 +16,7 @@ void *thread_func(void *arg) {
 
     cpu_set_t cpu_set;
     CPU_ZERO(&cpu_set);
+    const pid_t pid = getpid();
 
     if ((long)arg == 0) {
         CPU_SET(0, &cpu_set);  // Set CPU affinity for core0
@@ -29,7 +30,7 @@ void *thread_func(void *arg) {
         return NULL;
     }
 
-    printf("Thread running on core %ld\n", (long)arg);
+    printf("Thread running on core %ld %d\n", (long)arg, pid);
 
     // Simulating some work
     // sleep(5);
