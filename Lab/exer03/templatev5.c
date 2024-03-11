@@ -7,19 +7,22 @@
 #include <pthread.h>
 #include <math.h>
 #include <time.h>
+#define LENGTH 9.2
 
 typedef struct ARGS {
     int threadNum;
+    int numCores;
 } args_st;
 
 void *thread_func(void *argsTemp) {
     args_st* args = (args_st*)argsTemp;
     int threadNum = args->threadNum;
+    int numCores = args->numCores;
 
     cpu_set_t cpu_set;
     CPU_ZERO(&cpu_set);
 
-    CPU_SET(threadNum, &cpu_set);
+    CPU_SET(threadNum%numCores, &cpu_set);
 
     int ret = sched_setaffinity(0, sizeof(cpu_set_t), &cpu_set);
     if (ret != 0) {
@@ -27,10 +30,10 @@ void *thread_func(void *argsTemp) {
         return NULL;
     }
 
-    printf("Thread running on core %d\n", threadNum);
+    printf("Thread running on core %d\n", threadNum%numCores);
 
     long cnt = 0;
-    for(int i=0; i<pow(10,10); i++) {
+    for(int i=0; i<pow(10,LENGTH); i++) {
         cnt++;
     }
     printf("%ld\n", cnt);
@@ -38,9 +41,12 @@ void *thread_func(void *argsTemp) {
     return NULL;
 }
 
+
+
 int main() {
     int numThreads;
     struct timespec start, end;
+    int numCores = sysconf(_SC_NPROCESSORS_ONLN);
 
     printf("# threads: ");
     scanf("%d", &numThreads);
@@ -52,6 +58,7 @@ int main() {
     
     for(int i=0; i<numThreads; i++) {
         argsArray[i].threadNum = i;
+        argsArray[i].numCores = numCores;
         pthread_create(&tid[i], NULL, thread_func, (void*)&argsArray[i]);
     }
 
