@@ -125,13 +125,12 @@ int*** splitMatrixByRow(int** matrix, int numOfThreads, int size) {
     return temp;
 }
 
-void printSubmatrices(int*** subMatrices, int size, int numOfThreads) {
-    int colSize = size / numOfThreads;
+void printSubmatrices(int*** subMatrices, int numMatrices, int rowSize, int colSize) {
     printf("\nPRINTING SUBMATRICES\n");
-    for(int i=0; i<numOfThreads; i++) {
+    for(int i=0; i<numMatrices; i++) {
         printf("SUBMATRIX %d\n", i+1);
         for(int j=0; j<colSize; j++) {
-            for (int k=0; k<size; k++) printf("%d ", subMatrices[i][j][k]);
+            for (int k=0; k<rowSize; k++) printf("%d ", subMatrices[i][j][k]);
             printf("\n");
         }
         printf("\n");
@@ -194,7 +193,7 @@ int main() {
 
     if (input == 'C') {
         int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-        if(verbose) printSubmatrices(subMatrices, size, numOfThreads);
+        if(verbose) printSubmatrices(subMatrices, numOfThreads, size/numOfThreads, size);
         args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
 
         struct timespec start;
@@ -225,7 +224,7 @@ int main() {
         return 0;
     } else if (input == 'R') {
         int*** subMatrices = splitMatrixByRow(matrix, numOfThreads, size);
-        if(verbose) printSubmatrices(subMatrices, size, numOfThreads);
+        if(verbose) printSubmatrices(subMatrices, numOfThreads, size, size/numOfThreads);
         args_st2 *argsArray = (args_st2*)malloc(sizeof(args_st2)*numOfThreads);
 
         struct timespec start;
