@@ -186,15 +186,11 @@ void printResult(float* v, int size) {
 }
 
 int main(int argc, char *argv[]) {
-    // char input;
     int size;
     int numOfThreads;
     int num_cores = sysconf(_SC_NPROCESSORS_ONLN)-1;
     char temp;
     bool verbose = false;
-
-    // printf("Split by Column or Row (C/R): ");
-    // scanf(" %c", &input);
 
     printf("Size: ");
     scanf("%d", &size);
@@ -223,7 +219,6 @@ int main(int argc, char *argv[]) {
     long resSumY = sumY(y,size);
     long resSumY2 = sumY2(y,size);
     long resSumY_2 = pow(resSumY,2);
-
     for(int i=0; i<numOfThreads; i++) {
         argsArray[i].X = subMatrices[i];
         argsArray[i].y = y;
