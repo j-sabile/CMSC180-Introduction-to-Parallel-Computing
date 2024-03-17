@@ -145,12 +145,11 @@ int*** splitMatrixByRow(int** matrix, int numOfThreads, int size) {
     return temp;
 }
 
-void printSubmatrices(int*** subMatrices, int size, int numOfThreads) {
-    int rowSize = size / numOfThreads;
+void printSubmatrices(int*** subMatrices, int numMatrices, int rowSize, int colSize) {
     printf("\nPRINTING SUBMATRICES\n");
-    for(int i=0; i<numOfThreads; i++) {
+    for(int i=0; i<numMatrices; i++) {
         printf("SUBMATRIX %d\n", i+1);
-        for(int j=0; j<size; j++) {
+        for(int j=0; j<colSize; j++) {
             for (int k=0; k<rowSize; k++) printf("%d ", subMatrices[i][j][k]);
             printf("\n");
         }
@@ -214,7 +213,7 @@ int main(int argc, char *argv[]) {
     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
     
     int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-    if(verbose) printSubmatrices(subMatrices, size, numOfThreads);
+    if(verbose) printSubmatrices(subMatrices, numOfThreads, size/numOfThreads, size);
 
     args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
 
