@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <math.h>
 #include <time.h>
+#include <stdbool.h>
 
 
 #define print_error_then_terminate(en, msg) \
@@ -36,38 +37,38 @@ typedef struct ARG2 {
     long* resSumXY;
 } args_st2;
 
-int sumY2(int* y, int m) {
-    int sum = 0;
+long sumY2(int* y, int m) {
+    long sum = 0;
     for(int i=0; i<m; i++) sum += pow(y[i], 2);
     return sum;
 }
 
 long sumX2(int** x, int m, int j) {
-    int sum = 0;
+    long sum = 0;
     for(int i=0; i<m; i++) sum += pow(x[i][j], 2);
     return sum;
 }
 
-int sumXY(int** x, int *y, int m, int j) {
-    int sum = 0;
+long sumXY(int** x, int *y, int m, int j) {
+    long sum = 0;
     for(int i=0; i<m; i++) sum += x[i][j] * y[i];
     return sum;
 }
 
-int sumXYModified(int** x, int *y, int m, int j, int threadNum) {
-    int sum = 0;
+long sumXYModified(int** x, int *y, int m, int j, int threadNum) {
+    long sum = 0;
     for(int i=0; i<m; i++) sum += x[i][j] * y[i+threadNum*m];
     return sum;
 }
 
-int sumX(int** x, int m, int j) {
-    int sum = 0;
+long sumX(int** x, int m, int j) {
+    long sum = 0;
     for(int i=0; i<m; i++) sum += x[i][j];
     return sum;
 }
 
-int sumY(int* y, int m) {
-    int sum = 0;
+long sumY(int* y, int m) {
+    long sum = 0;
     for(int i=0; i<m; i++) sum += y[i];
     return sum;
 }
@@ -91,47 +92,19 @@ int* generateRandomY(int size){
 
 void* pearson_cor(void* argsTemp) {
     args_st* args = (args_st*)argsTemp;
-    
     int threadNum = args->threadNum;
-    int numCores = args->numCores;
-    int coreNum = threadNum%numCores;
 
+    int numCores = args->numCores;
+    int coreNum = (threadNum%numCores)+1;
     cpu_set_t cpu_set;
     CPU_ZERO(&cpu_set);
-
     CPU_SET(coreNum, &cpu_set);
-
     int ret = sched_setaffinity(0, sizeof(cpu_set_t), &cpu_set);
     if (ret != 0) {
         perror("sched_setaffinity");
         return NULL;
     }
-
-    printf("Thread running on core %d\n", coreNum);
-
-
-    // int core_id = threadNum%numCores; // Assign to the second core
-    // const pid_t pid = getpid();
-    
-    // printf("t=%d c=%d pid=%d\n", threadNum, numCores, pid);
-
-    // // cpu_set_t: This data set is a bitset where each bit represents a CPU.
-    // cpu_set_t cpuset;
-    // // CPU_ZERO: This macro initializes the CPU set set to be the empty set.
-    // CPU_ZERO(&cpuset);
-    // // CPU_SET: This macro adds cpu to the CPU set set.
-    // CPU_SET(core_id, &cpuset);
-    
-    // // sched_setaffinity: This function installs the cpusetsize bytes long affinity mask pointed to by cpuset for the process or thread with the ID pid. If successful the function returns zero and the scheduler will in future take the affinity information into account.
-    // const int set_result = sched_setaffinity(pid, sizeof(cpu_set_t), &cpuset);
-    // if (set_result != 0) print_error_then_terminate(set_result, "sched_setaffinity");
-    // // Check what is the actual affinity mask that was assigned to the thread.
-    // // sched_getaffinity: This functions stores the CPU affinity mask for the process or thread with the ID pid in the cpusetsize bytes long bitmap pointed to by cpuset. If successful, the function always initializes all bits in the cpu_set_t object and returns zero.
-    // const int get_affinity = sched_getaffinity(pid, sizeof(cpu_set_t), &cpuset);
-    // if (get_affinity != 0) print_error_then_terminate(get_affinity, "sched_getaffinity");
-    // // CPU_ISSET: This macro returns a nonzero value (true) if cpu is a member of the CPU set set, and zero (false) otherwise.
-    // if (CPU_ISSET(core_id, &cpuset)) fprintf(stdout, "Successfully set thread %d to affinity to CPU %d\n", pid, core_id);
-    // else fprintf(stderr, "Failed to set thread %d to affinity to CPU %d\n", pid, core_id);
+    printf("Thread%d running on core%d\n", threadNum, coreNum);
 
     int** X = args->X;
     int* y = args->y;
@@ -141,11 +114,9 @@ void* pearson_cor(void* argsTemp) {
     int j = args->rowSize;
     float* v = args->v;
     for(int i=0; i<j; i++) {
-        // printf("%d\n", sumXY(X,y,m,i));
         v[i+threadNum*j] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*resSumY2)-resSumY_2),0.5);
     }
     pthread_exit(NULL);
-    // return NULL;
 }
 
 int*** splitMatrix(int** matrix, int numOfThreads, int size) {
@@ -203,12 +174,25 @@ void* getSumOfSubCol(void* argsTemp) {
     return NULL;
 }
 
+void printY(int* y, int size){
+    printf("\nPRINTING Y\n");
+    for(int i=0; i<size; i++) printf("%d ", y[i]);
+    printf("\n");
+}
+
+void printResult(float* v, int size) {
+    printf("PEARSON CORRELATION COEFFICIENT\n");
+    for(int i=0; i<size; i++) printf("%lf ", v[i]);
+    printf("\n");
+}
+
 int main(int argc, char *argv[]) {
     // char input;
     int size;
     int numOfThreads;
-    int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-    // int num_cores = 1;
+    int num_cores = sysconf(_SC_NPROCESSORS_ONLN)-1;
+    char temp;
+    bool verbose = false;
 
     // printf("Split by Column or Row (C/R): ");
     // scanf(" %c", &input);
@@ -218,15 +202,19 @@ int main(int argc, char *argv[]) {
     printf("# of threads: ");
     scanf("%d", &numOfThreads);
 
+    printf("Print matrix? [Y/N]: ");
+    scanf(" %c", &temp);
+    if (temp == 'Y') { verbose = true; }
+
     float* v = (float*)malloc(sizeof(float)*size);
     int** matrix = generateRandomMatrix(size);
     int* y = generateRandomY(size);
+    if(verbose) printY(y, size);
+
     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
-    for(int i=0; i<size; i++) printf("%d ", y[i]);
-    printf("\n");
     
     int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-    printSubmatrices(subMatrices, size, numOfThreads);
+    if(verbose) printSubmatrices(subMatrices, size, numOfThreads);
 
     args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
 
@@ -236,7 +224,7 @@ int main(int argc, char *argv[]) {
     long resSumY = sumY(y,size);
     long resSumY2 = sumY2(y,size);
     long resSumY_2 = pow(resSumY,2);
-    
+
     for(int i=0; i<numOfThreads; i++) {
         argsArray[i].X = subMatrices[i];
         argsArray[i].y = y;
@@ -255,8 +243,7 @@ int main(int argc, char *argv[]) {
     
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
+    if(verbose) printResult(v, size);
     printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
-    for(int i=0; i<size; i++) printf("%lf ", v[i]);
-    printf("\n");
     return 0;
 }
