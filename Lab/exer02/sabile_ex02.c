@@ -92,7 +92,7 @@ void* pearson_cor(void* argsTemp) {
     int threadNum = args->threadNum;
     float* v = args->v;
     for(int i=0; i<j; i++) {
-        printf("%d %ld %f\n", m, sumX2(X,m,i), pow(sumX(X,m,i),2));
+        // printf("%d %ld %f\n", m, sumX2(X,m,i), pow(sumX(X,m,i),2));
         v[i+threadNum*j] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*resSumY2)-resSumY_2),0.5);
     }
     pthread_exit(NULL);
@@ -171,12 +171,14 @@ int main() {
 
     int** matrix = generateRandomMatrix(size);
     int* y = generateRandomY(size);
+    for(int i=0; i<size; i++) printf("%d ", y[i]);
+    printf("\n");
     pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
     
-    int*** subMatrices = splitMatrixByRow(matrix, numOfThreads, size);
-    // printSubmatrices(subMatrices, size, numOfThreads);
 
     if (input == 'C') {
+        int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
+        // printSubmatrices(subMatrices, size, numOfThreads);
         args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
 
         struct timespec start;
@@ -185,7 +187,7 @@ int main() {
         long resSumY = sumY(y,size);
         long resSumY2 = sumY2(y,size);
         long resSumY_2 = pow(resSumY,2);
-        printf("%ld %ld %ld\n", resSumY, resSumY2, resSumY_2);
+        // printf("%ld %ld %ld\n", resSumY, resSumY2, resSumY_2);
         for(int i=0; i<numOfThreads; i++) {
             argsArray[i].X = subMatrices[i];
             argsArray[i].y = y;
@@ -204,10 +206,12 @@ int main() {
         struct timespec end;
         clock_gettime(CLOCK_MONOTONIC, &end);
         printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
-        for(int i=0; i<size; i++) printf("%lf ", v[i]);
+        // for(int i=0; i<size; i++) printf("%lf ", v[i]);
         printf("\n");
         return 0;
     } else if (input == 'R') {
+        int*** subMatrices = splitMatrixByRow(matrix, numOfThreads, size);
+        printSubmatrices(subMatrices, size, numOfThreads);
         args_st2 *argsArray = (args_st2*)malloc(sizeof(args_st2)*numOfThreads);
 
         struct timespec start;
