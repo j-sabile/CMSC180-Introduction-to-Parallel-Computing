@@ -93,7 +93,7 @@ void* pearson_cor(void* argsTemp) {
     int threadNum = args->threadNum;
     float* v = args->v;
     for(int i=0; i<j; i++) {
-        v[i+threadNum*j] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*resSumY2)-resSumY_2),0.5);
+        v[i+threadNum*j] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*resSumY)/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*resSumY2)-resSumY_2),0.5);
     }
     pthread_exit(NULL);
     return NULL;

@@ -132,19 +132,6 @@ int*** splitMatrix(int** matrix, int numOfThreads, int size) {
     return temp;
 }
 
-int*** splitMatrixByRow(int** matrix, int numOfThreads, int size) {
-    int*** temp = (int***)malloc(sizeof(int**)*numOfThreads);
-    int colSize = size/numOfThreads;
-    for(int i=0; i<numOfThreads; i++) {
-        temp[i] = (int**)malloc(sizeof(int*)*colSize);
-        for(int j=0; j<colSize; j++) {
-            temp[i][j] = (int*)malloc(sizeof(int)*size);
-            for(int k=0; k<size; k++) temp[i][j][k] = matrix[j+colSize*i][k];
-        }
-    }
-    return temp;
-}
-
 void printSubmatrices(int*** subMatrices, int numMatrices, int rowSize, int colSize) {
     printf("\nPRINTING SUBMATRICES\n");
     for(int i=0; i<numMatrices; i++) {
@@ -155,22 +142,6 @@ void printSubmatrices(int*** subMatrices, int numMatrices, int rowSize, int colS
         }
         printf("\n");
     }
-}
-
-void* getSumOfSubCol(void* argsTemp) {
-    args_st2* args = (args_st2*)argsTemp;
-    int** X = args->X;
-    int* y = args->y;
-    int m = args->colSize;
-    int j = args->rowSize;
-    int threadNum = args->threadNum;
-    for(int i=0; i<j; i++) {
-        args->resSumX[i] = sumX(X,m,i);
-        args->resSumX2[i] = sumX2(X,m,i);
-        args->resSumXY[i] = sumXYModified(X,y,m,i,threadNum);
-    }
-    pthread_exit(NULL);
-    return NULL;
 }
 
 void printY(int* y, int size){
