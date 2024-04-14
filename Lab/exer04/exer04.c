@@ -238,27 +238,14 @@ int main(int argc, char *argv[]) {
         fscanf(fp, "%s\n", ipAddress);
         printf("slaves: %d\n", numberOfSlaves);
         int* ports = (int*)malloc(sizeof(int)*numberOfSlaves);
-        for (int i=0; i<numberOfSlaves; i++) {
-            fscanf(fp, "%d\n", &ports[i]);
-        }
-
+        for (int i=0; i<numberOfSlaves; i++) fscanf(fp, "%d\n", &ports[i]);
+        
         // printing ports of slaves
         for (int i=0; i<numberOfSlaves; i++) printf("%d - %d\n", i+1, ports[i]);
         
         for (int i=0; i<numberOfSlaves; i++) {
-            // socket create and verification 
-            sockfd = socket(AF_INET, SOCK_STREAM, 0); 
-            if (sockfd == -1) { 
-                printf("socket creation failed...\n"); 
-                exit(0); 
-            } 
-            else printf("Socket successfully created..\n"); 
-            bzero(&servaddr, sizeof(servaddr)); 
 
-            // assign IP, PORT
-            servaddr.sin_family = AF_INET;
-            servaddr.sin_addr.s_addr = inet_addr(ipAddress);
-            servaddr.sin_port = htons(ports[i]); 
+            sockfd = createSocket(&servaddr, ports[i], ipAddress);
 
             // connect the client socket to server socket
             if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
