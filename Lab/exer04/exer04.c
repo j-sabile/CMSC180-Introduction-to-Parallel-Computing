@@ -173,24 +173,44 @@ void slaveFunc(int connfd) {
     // y, submatrix
     // get dimensions (m, n)
     int m, n; // m = num of rows, n = num of cols
-    bzero(&m, sizeof(int));
+    
+    // bzero(&m, sizeof(int));
     read(connfd, &m, sizeof(int));
     printf("m = %d\n", m);
-    bzero(&n, sizeof(int));
+
+    // bzero(&n, sizeof(int));
     read(connfd, &n, sizeof(int));
     printf("n = %d\n", n);
 
     int* y = (int*)malloc(sizeof(int)*m);
+    int** subMatrix = (int**)malloc(sizeof(int*)*m);
+    for(int i=0; i<m; i++) subMatrix[i] = (int*)malloc(sizeof(int)*n);
+    
+    // bzero(y, sizeof(int)*m);
     read(connfd, y, sizeof(int)*m);
+
+    for(int i=0; i<m; i++) {
+        // bzero(subMatrix[i], sizeof(int)*n);
+        read(connfd, subMatrix[i], sizeof(int)*n);
+    }
+
+    printf("\n== y ==\n");
     for (int i=0; i<m; i++) printf("%d ", y[i]);
+    
+    printf("\n== submatrix ==\n");
+    for (int i=0; i<m; i++) {
+        for (int j=0; j<n; j++) printf("%d ", subMatrix[i][j]);
+        printf("\n");
+    }
 }
 
-void masterFunc(int sockfd, int* y) {
-    int m = 10, n = 2;
+void masterFunc(int sockfd, int* y, int m, int n, int** subMatrix) {
     write(sockfd, &m, sizeof(int));
     write(sockfd, &n, sizeof(int));
 
-    write(sockfd, y, sizeof(int)*10);
+    write(sockfd, y, sizeof(int)*m);
+    for (int i=0; i<m; i++) write(sockfd, subMatrix[i], sizeof(int)*n);
+    // write(sockfd, subMatrix, sizeof(int)*m*n);
 }
 
 int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr) {
@@ -279,14 +299,14 @@ int main(int argc, char *argv[]) {
         fscanf(fp, "%s\n", ipAddress);
         printf("slaves: %d\n", numberOfSlaves);
 
-        float* v = (float*)malloc(sizeof(float)*size);
-        int** matrix = generateRandomMatrix(size);
+        float* v = (float*)malloc(sizeof(float)*n);
+        int** matrix = generateRandomMatrix(n);
         int* y = generateRandomY(n);
         if(verbose) printY(y, n);
 
-        // int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-        // if(verbose) printSubmatrices(subMatrices, numOfThreads, size/numOfThreads, size);
-
+        int*** subMatrices = splitMatrix(matrix, numberOfSlaves, n);
+        if(verbose) printSubmatrices(subMatrices, numberOfSlaves, n/numberOfSlaves, n);
+        printf("\n%d %d\n", subMatrices[0][0][0], subMatrices[0][0][1]);
 
         int* ports = (int*)malloc(sizeof(int)*numberOfSlaves);
         for (int i=0; i<numberOfSlaves; i++) fscanf(fp, "%d\n", &ports[i]);
@@ -306,7 +326,7 @@ int main(int argc, char *argv[]) {
             }
             else printf("connected to the server %d..\n", ports[i]);
 
-            masterFunc(sockfd, y);
+            masterFunc(sockfd, y, n, n/numOfThreads, subMatrices[i]);
 
         	close(sockfd);
         }
