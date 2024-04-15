@@ -170,47 +170,29 @@ void func(int sockfd) {
 }
 
 void slaveFunc(int connfd) {
-    // y, submatrix
-    // get dimensions (m, n)
-    int m, n; // m = num of rows, n = num of cols
-    
-    // bzero(&m, sizeof(int));
+    int m, n; 
     read(connfd, &m, sizeof(int));
-    printf("m = %d\n", m);
-
-    // bzero(&n, sizeof(int));
     read(connfd, &n, sizeof(int));
-    printf("n = %d\n", n);
 
     int* y = (int*)malloc(sizeof(int)*m);
     int** subMatrix = (int**)malloc(sizeof(int*)*m);
     for(int i=0; i<m; i++) subMatrix[i] = (int*)malloc(sizeof(int)*n);
     
-    // bzero(y, sizeof(int)*m);
     read(connfd, y, sizeof(int)*m);
-
-    for(int i=0; i<m; i++) {
-        // bzero(subMatrix[i], sizeof(int)*n);
-        read(connfd, subMatrix[i], sizeof(int)*n);
-    }
-
-    printf("\n== y ==\n");
-    for (int i=0; i<m; i++) printf("%d ", y[i]);
-    
-    printf("\n== submatrix ==\n");
-    for (int i=0; i<m; i++) {
-        for (int j=0; j<n; j++) printf("%d ", subMatrix[i][j]);
-        printf("\n");
-    }
+    for(int i=0; i<m; i++) read(connfd, subMatrix[i], sizeof(int)*n);
+    int ack = 2;
+    write(connfd, &ack, sizeof(int));
 }
 
 void masterFunc(int sockfd, int* y, int m, int n, int** subMatrix) {
+    int ack;
     write(sockfd, &m, sizeof(int));
     write(sockfd, &n, sizeof(int));
 
     write(sockfd, y, sizeof(int)*m);
     for (int i=0; i<m; i++) write(sockfd, subMatrix[i], sizeof(int)*n);
-    // write(sockfd, subMatrix, sizeof(int)*m*n);
+    read(sockfd, &ack, sizeof(int));
+    printf("Read: %d\n", ack);
 }
 
 int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr) {
