@@ -169,6 +169,30 @@ void func(int sockfd) {
 
 }
 
+void slaveFunc(int connfd) {
+    // y, submatrix
+    // get dimensions (m, n)
+    int m, n; // m = num of rows, n = num of cols
+    bzero(&m, sizeof(int));
+    read(connfd, &m, sizeof(int));
+    printf("m = %d\n", m);
+    bzero(&n, sizeof(int));
+    read(connfd, &n, sizeof(int));
+    printf("n = %d\n", n);
+
+    int* y = (int*)malloc(sizeof(int)*m);
+    read(connfd, y, sizeof(int)*m);
+    for (int i=0; i<m; i++) printf("%d ", y[i]);
+}
+
+void masterFunc(int sockfd, int* y) {
+    int m = 10, n = 2;
+    write(sockfd, &m, sizeof(int));
+    write(sockfd, &n, sizeof(int));
+
+    write(sockfd, y, sizeof(int)*10);
+}
+
 int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr) {
     int sockfd;
 
@@ -190,6 +214,32 @@ int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr) {
     return sockfd;
 }
 
+void bindSocket(int sockfd, struct sockaddr_in* servaddr) {
+    // Binding newly created socket to given IP and verification 
+    if ((bind(sockfd, (SA*)servaddr, sizeof(*servaddr))) != 0) { 
+        printf("socket bind failed...\n"); 
+        exit(0); 
+    } 
+    else printf("Socket successfully binded..\n"); 
+}
+
+int listenSocket(int sockfd, struct sockaddr_in* cli) {
+    if ((listen(sockfd, 5)) != 0) { 
+        printf("Listen failed...\n"); 
+        exit(0); 
+    } 
+    else printf("Server listening..\n");
+
+    int len = sizeof(*cli); 
+    int connfd = accept(sockfd, (SA*)cli, &len); 
+    if (connfd < 0) { 
+        printf("server accept failed...\n"); 
+        exit(0); 
+    } 
+    else printf("server accept the client...\n");
+    return connfd; 
+}
+
 int main(int argc, char *argv[]) {
     int size, numOfThreads, n, p;
     int num_cores = sysconf(_SC_NPROCESSORS_ONLN)-1;
@@ -203,27 +253,18 @@ int main(int argc, char *argv[]) {
     printf("s: ");
     scanf(" %c", &s);
 
-    // printf("Print matrix? [Y/N]: ");
-    // scanf(" %c", &temp);
-    // if (temp == 'Y') { verbose = true; }
-
     // create socket
     int sockfd, connfd, len; 
 	struct sockaddr_in servaddr, cli; 
 
     if (s == '0') {
         printf("==== MASTER ====\n");
-        // printf("# of threads: ");
-        // scanf("%d", &numOfThreads);
-        
-        // float* v = (float*)malloc(sizeof(float)*size);
-        // int** matrix = generateRandomMatrix(size);
-        // int* y = generateRandomY(size);
-        // if(verbose) printY(y, size);
+        printf("# of threads: ");
+        scanf("%d", &numOfThreads);
 
-        // int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-        // if(verbose) printSubmatrices(subMatrices, numOfThreads, size/numOfThreads, size);
-
+        printf("Print matrix? [Y/N]: ");
+        scanf(" %c", &temp);
+        if (temp == 'Y') { verbose = true; }
 
         // reading the config
         int numberOfSlaves;
@@ -237,6 +278,16 @@ int main(int argc, char *argv[]) {
 		fscanf(fp, "%d\n", &numberOfSlaves);
         fscanf(fp, "%s\n", ipAddress);
         printf("slaves: %d\n", numberOfSlaves);
+
+        float* v = (float*)malloc(sizeof(float)*size);
+        int** matrix = generateRandomMatrix(size);
+        int* y = generateRandomY(n);
+        if(verbose) printY(y, n);
+
+        // int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
+        // if(verbose) printSubmatrices(subMatrices, numOfThreads, size/numOfThreads, size);
+
+
         int* ports = (int*)malloc(sizeof(int)*numberOfSlaves);
         for (int i=0; i<numberOfSlaves; i++) fscanf(fp, "%d\n", &ports[i]);
         
@@ -253,47 +304,27 @@ int main(int argc, char *argv[]) {
                 printf("connection with the server %d failed...\n", ports[i]);
                 exit(0);
             }
-            else
-                printf("connected to the server %d..\n", ports[i]);
-    
+            else printf("connected to the server %d..\n", ports[i]);
+
+            masterFunc(sockfd, y);
+
         	close(sockfd);
         }
-
-
 
 
     } else if (s == '1') {
         printf("==== SLAVE ====\n");
 
         sockfd = createSocket(&servaddr, p, INADDR_ANY);
+        bindSocket(sockfd, &servaddr);
+        connfd = listenSocket(sockfd, &cli);
 
-        // Binding newly created socket to given IP and verification 
-        if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
-            printf("socket bind failed...\n"); 
-            exit(0); 
-        } 
-        else printf("Socket successfully binded..\n"); 
+        slaveFunc(connfd); 
+        // receive data
+        // send ack
+        // compute data
+        // send back data
 
-        // Now server is ready to listen and verification 
-        if ((listen(sockfd, 5)) != 0) { 
-            printf("Listen failed...\n"); 
-            exit(0); 
-        } 
-        else printf("Server listening..\n"); 
-        len = sizeof(cli); 
-
-        // Accept the data packet from client and verification 
-        connfd = accept(sockfd, (SA*)&cli, &len); 
-        if (connfd < 0) { 
-            printf("server accept failed...\n"); 
-            exit(0); 
-        } 
-        else printf("server accept the client...\n"); 
-
-        // Function for chatting between client and server 
-        func(connfd); 
-
-        // After chatting close the socket 
         close(sockfd); 
 
     } else { printf("Invalid s input!"); }
