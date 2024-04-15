@@ -169,19 +169,35 @@ void func(int sockfd) {
 
 }
 
+void pearson_cor_basic(int** X, int* y, float* v, int m, int n) {
+    long resSumY = sumY(y,m);
+    long resSumY2 = sumY2(y,m);
+    long resSumY_2 = pow(resSumY,2);
+    for(int i=0; i<n; i++) {
+        v[i] = (m*sumXY(X,y,m,i)-sumX(X,m,i)*sumY(y,m))/pow((m*sumX2(X,m,i)-pow(sumX(X,m,i),2))*((m*resSumY2)-resSumY_2),0.5);
+    }
+}
+
 void slaveFunc(int connfd) {
     int m, n; 
     read(connfd, &m, sizeof(int));
     read(connfd, &n, sizeof(int));
 
     int* y = (int*)malloc(sizeof(int)*m);
-    int** subMatrix = (int**)malloc(sizeof(int*)*m);
-    for(int i=0; i<m; i++) subMatrix[i] = (int*)malloc(sizeof(int)*n);
+    float* v = (float*)malloc(sizeof(float)*n);
+    int** matrix = (int**)malloc(sizeof(int*)*m);
+    for(int i=0; i<m; i++) matrix[i] = (int*)malloc(sizeof(int)*n);
     
     read(connfd, y, sizeof(int)*m);
-    for(int i=0; i<m; i++) read(connfd, subMatrix[i], sizeof(int)*n);
-    int ack = 2;
+    for(int i=0; i<m; i++) read(connfd, matrix[i], sizeof(int)*n);
+    int ack = 1;
     write(connfd, &ack, sizeof(int));
+
+    pearson_cor_basic(matrix, y, v, m, n);
+    printf("answers:\n");
+    for(int i=0; i<n; i++) printf("%lf ", v[i]);
+
+    write(connfd, v, sizeof(float)*n);
 }
 
 void masterFunc(int sockfd, int* y, int m, int n, int** subMatrix) {
@@ -192,7 +208,9 @@ void masterFunc(int sockfd, int* y, int m, int n, int** subMatrix) {
     write(sockfd, y, sizeof(int)*m);
     for (int i=0; i<m; i++) write(sockfd, subMatrix[i], sizeof(int)*n);
     read(sockfd, &ack, sizeof(int));
-    printf("Read: %d\n", ack);
+    printf("Successfully sent data!\n");
+
+    // read(sockfd, );
 }
 
 int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr) {
@@ -242,82 +260,81 @@ int listenSocket(int sockfd, struct sockaddr_in* cli) {
     return connfd; 
 }
 
+bool askVerbose() {
+    char temp;
+    printf("Print matrix? [Y/N]: ");
+    scanf(" %c", &temp);
+    if (temp == 'Y') return true;
+    return false;
+}
+
 int main(int argc, char *argv[]) {
-    int size, numOfThreads, n, p;
-    int num_cores = sysconf(_SC_NPROCESSORS_ONLN)-1;
+    
+    // reading the config
+    int numberOfSlaves, hostPort;
+    char* hostIp = (char*)malloc(sizeof(char)*16);
+    FILE* fp = fopen("config.txt", "r");
+    if (fp == NULL) {
+        printf("Failed to open the config file...");
+        exit(0);
+    }
+    fscanf(fp, "%d\n", &numberOfSlaves);
+    fscanf(fp, "%s\n", hostIp);
+    fscanf(fp, "%d\n", &hostPort);
+    char** slavesIp = (char**)malloc(sizeof(char*)*numberOfSlaves);
+    for(int i=0; i<numberOfSlaves; i++) slavesIp[i] = (char*)malloc(sizeof(char)*16);
+    int* slavesPort = (int*)malloc(sizeof(int)*numberOfSlaves);
+    for(int i=0; i<numberOfSlaves; i++) {
+        fscanf(fp, "%s\n", slavesIp[i]);
+        fscanf(fp, "%d\n", &slavesPort[i]);
+    }
+
+    int size, n, sockfd, connfd, len, slaveNumber;
     char temp, s;
-    bool verbose = false;
-
-    printf("n: ");
-    scanf("%d", &n);
-    printf("p: ");
-    scanf("%d", &p);
-    printf("s: ");
-    scanf(" %c", &s);
-
-    // create socket
-    int sockfd, connfd, len; 
 	struct sockaddr_in servaddr, cli; 
 
+    printf("s [0/1]: ");
+    scanf(" %c", &s);
+
     if (s == '0') {
-        printf("==== MASTER ====\n");
-        printf("# of threads: ");
-        scanf("%d", &numOfThreads);
+        printf("\n==== MASTER ====\n");
 
-        printf("Print matrix? [Y/N]: ");
-        scanf(" %c", &temp);
-        if (temp == 'Y') { verbose = true; }
-
-        // reading the config
-        int numberOfSlaves;
-        char ipAddress[15];
-        FILE *fp;
-        fp = fopen("config.txt", "r");
-        if (fp == NULL) {
-            printf("Failed to open the config file...");
-            exit(0);
-        }
-		fscanf(fp, "%d\n", &numberOfSlaves);
-        fscanf(fp, "%s\n", ipAddress);
-        printf("slaves: %d\n", numberOfSlaves);
+        printf("n: ");
+        scanf("%d", &n);
+        bool verbose = askVerbose();
 
         float* v = (float*)malloc(sizeof(float)*n);
         int** matrix = generateRandomMatrix(n);
         int* y = generateRandomY(n);
         if(verbose) printY(y, n);
-
         int*** subMatrices = splitMatrix(matrix, numberOfSlaves, n);
         if(verbose) printSubmatrices(subMatrices, numberOfSlaves, n/numberOfSlaves, n);
-        printf("\n%d %d\n", subMatrices[0][0][0], subMatrices[0][0][1]);
 
-        int* ports = (int*)malloc(sizeof(int)*numberOfSlaves);
-        for (int i=0; i<numberOfSlaves; i++) fscanf(fp, "%d\n", &ports[i]);
-        
-        // printing ports of slaves
-        for (int i=0; i<numberOfSlaves; i++) printf("%d - %d\n", i+1, ports[i]);
-        
         for (int i=0; i<numberOfSlaves; i++) {
 
-            sockfd = createSocket(&servaddr, ports[i], ipAddress);
+            sockfd = createSocket(&servaddr, slavesPort[i], slavesIp[i]);
 
             // connect the client socket to server socket
             if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
                 != 0) {
-                printf("connection with the server %d failed...\n", ports[i]);
+                printf("connection to %s %d failed...\n", slavesIp[i], slavesPort[i]);
                 exit(0);
             }
-            else printf("connected to the server %d..\n", ports[i]);
+            else printf("connected to %s %d..\n", slavesIp[i], slavesPort[i]);
 
-            masterFunc(sockfd, y, n, n/numOfThreads, subMatrices[i]);
+            masterFunc(sockfd, y, n, n/numberOfSlaves, subMatrices[i]);
 
         	close(sockfd);
         }
 
 
     } else if (s == '1') {
-        printf("==== SLAVE ====\n");
+        printf("\n==== SLAVE ====\n");
 
-        sockfd = createSocket(&servaddr, p, INADDR_ANY);
+        printf("Slave Number [0-%d]: ", numberOfSlaves-1);
+        scanf("%d", &slaveNumber);
+
+        sockfd = createSocket(&servaddr, slavesPort[slaveNumber], INADDR_ANY);
         bindSocket(sockfd, &servaddr);
         connfd = listenSocket(sockfd, &cli);
 
