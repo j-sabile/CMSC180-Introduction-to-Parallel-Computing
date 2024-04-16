@@ -194,15 +194,15 @@ float* slaveFunc(int connfd, int* n) {
     write(connfd, &ack, sizeof(int));
 
     pearson_cor_basic(matrix, y, v, m, (int)*n);
-    printf("answers:\n");
-    for(int i=0; i<(int)*n; i++) printf("%lf ", v[i]);
-    printf("\n");
+    // printf("answers:\n");
+    // for(int i=0; i<(int)*n; i++) printf("%lf ", v[i]);
+    // printf("\n");
 
     return v;
 }
 
 void slaveFunc2(int sockfd, float* v, int len, int* slaveNumber) {
-    printf("sending: %d %d ", (int)*slaveNumber, len);
+    // printf("sending: %d %d ", (int)*slaveNumber, len);
     write(sockfd, slaveNumber, sizeof(int));
     write(sockfd, &len, sizeof(int));
     write(sockfd, v, sizeof(float)*len);
@@ -217,8 +217,6 @@ void masterFunc(int sockfd, int* y, int m, int n, int** subMatrix) {
     for (int i=0; i<m; i++) write(sockfd, subMatrix[i], sizeof(int)*n);
     read(sockfd, &ack, sizeof(int));
     printf("Successfully sent data!\n");
-
-    // read(sockfd, );
 }
 
 void masterFunc2(int connfd, float* v) {
@@ -227,15 +225,15 @@ void masterFunc2(int connfd, float* v) {
     read(connfd, &len, sizeof(int));
     float* temp = (float*)malloc(sizeof(float)*len);
     read(connfd, temp, sizeof(float)*len);
-    printf("len=%d, sl#=%d\n", len, slaveNumber);
-    printf("temp=");
-    for(int i=0; i<len; i++) printf("%lf ", temp[i]);
-    printf("\n");
+    // printf("len=%d, sl#=%d\n", len, slaveNumber);
+    // printf("temp=");
+    // for(int i=0; i<len; i++) printf("%lf ", temp[i]);
+    // printf("\n");
     for (int i=0; i<len; i++) {
-        printf("%d ", slaveNumber*len+i);
+        // printf("%d ", slaveNumber*len+i);
         v[slaveNumber*len+i] = (float)temp[i];
     }
-    printf("\n");
+    // printf("\n");
     free(temp);
 }
 
@@ -287,10 +285,12 @@ int listenSocket(int sockfd, struct sockaddr_in* cli) {
 }
 
 void connectSocket(int sockfd, struct sockaddr_in* servaddr, char* ipAddress, int port) {
-    while (true) {
-        if (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) printf("connection to %s %d failed...\n", ipAddress, port);
-        else break; 
-    }
+    // while (true) {
+    //     if (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) printf("connection to %s %d failed...\n", ipAddress, port);
+    //     else break; 
+    // }
+
+    while (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) {}
     printf("connected to %s %d..\n", ipAddress, port);
 }
 
@@ -344,6 +344,9 @@ int main(int argc, char *argv[]) {
         int*** subMatrices = splitMatrix(matrix, numberOfSlaves, n);
         if(verbose) printSubmatrices(subMatrices, numberOfSlaves, n/numberOfSlaves, n);
 
+        struct timespec start;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
         for (int i=0; i<numberOfSlaves; i++) {
             sockfd = createSocket(&servaddr, slavesPort[i], slavesIp[i]);
             connectSocket(sockfd, &servaddr, slavesIp[i], slavesPort[i]);
@@ -356,14 +359,16 @@ int main(int argc, char *argv[]) {
         for (int i=0; i<numberOfSlaves; i++) {
         connfd = listenSocket(sockfd, &cli);
             masterFunc2(connfd, v);
-            printf("=== Compiled ===\n");
-            for (int i=0; i<n; i++) printf("%lf ", v[i]);
-            printf("\n");
         }
         close(sockfd);
 
-        printf("\n=== Compiled ===\n");
-        for (int i=0; i<n; i++) printf("%lf ", v[i]);
+        struct timespec end;
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        if(verbose) printResult(v, n);
+        printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
+
+        // printf("\n=== Compiled ===\n");
+        // for (int i=0; i<n; i++) printf("%lf ", v[i]);
 
 
     } else if (s == '1') {
@@ -381,7 +386,7 @@ int main(int argc, char *argv[]) {
 
         sockfd = createSocket(&servaddr, hostPort, hostIp);
         connectSocket(sockfd, &servaddr, hostIp, hostPort);
-        printf("len=%d\n", (int)*n);
+        // printf("len=%d\n", (int)*n);
         slaveFunc2(sockfd, v, (int)*n, &slaveNumber);
         close(sockfd);
 
