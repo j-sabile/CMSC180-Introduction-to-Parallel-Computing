@@ -160,7 +160,7 @@ void printY(int* y, int size){
 }
 
 void printResult(float* v, int size) {
-    printf("PEARSON CORRELATION COEFFICIENT\n");
+    printf("\nPEARSON CORRELATION COEFFICIENT\n");
     for(int i=0; i<size; i++) printf("%lf ", v[i]);
     printf("\n");
 }
@@ -194,6 +194,8 @@ float* slaveFunc(int connfd, int* n) {
     write(connfd, &ack, sizeof(int));
 
     pearson_cor_basic(matrix, y, v, m, (int)*n);
+    for (int i=0; i<m; i++) free(matrix[i]);
+    free(matrix);
     // printf("answers:\n");
     // for(int i=0; i<(int)*n; i++) printf("%lf ", v[i]);
     // printf("\n");
@@ -216,7 +218,7 @@ void masterFunc(int sockfd, int* y, int m, int n, int** subMatrix) {
     write(sockfd, y, sizeof(int)*m);
     for (int i=0; i<m; i++) write(sockfd, subMatrix[i], sizeof(int)*n);
     read(sockfd, &ack, sizeof(int));
-    printf("Successfully sent data!\n");
+    printf("Successfully sent the matrix!\n");
 }
 
 void masterFunc2(int connfd, float* v) {
@@ -246,7 +248,7 @@ int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr) {
         printf("Socket creation failed...\n");
         exit(0);
     }
-    else printf("Socket successfully created!\n");
+    // else printf("Socket successfully created!\n"); VERBB
     bzero(servaddr, sizeof(servaddr));
 
     // // Assign IP and PORT
@@ -264,15 +266,15 @@ void bindSocket(int sockfd, struct sockaddr_in* servaddr) {
         printf("socket bind failed...\n"); 
         exit(0); 
     } 
-    else printf("Socket successfully binded..\n"); 
+    // else printf("Socket successfully binded..\n"); VERBB
 }
 
-int listenSocket(int sockfd, struct sockaddr_in* cli) {
+int listenSocket(int sockfd, struct sockaddr_in* cli, const char* s1, const char* s2) {
     if ((listen(sockfd, 5)) != 0) { 
         printf("Listen failed...\n"); 
         exit(0); 
     } 
-    else printf("Server listening..\n");
+    else printf("%s\n", s1);
 
     int len = sizeof(*cli); 
     int connfd = accept(sockfd, (SA*)cli, &len); 
@@ -280,36 +282,41 @@ int listenSocket(int sockfd, struct sockaddr_in* cli) {
         printf("server accept failed...\n"); 
         exit(0); 
     } 
-    else printf("server accept the client...\n");
+    else printf("%s\n", s2);
     return connfd; 
 }
 
-void connectSocket(int sockfd, struct sockaddr_in* servaddr, char* ipAddress, int port) {
-    // while (true) {
-    //     if (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) printf("connection to %s %d failed...\n", ipAddress, port);
-    //     else break; 
-    // }
-
-    while (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) {}
-    printf("connected to %s %d..\n", ipAddress, port);
+void connectSocket(int sockfd, struct sockaddr_in* servaddr, char* ipAddress, int port, const char* s) {
+    srand(time(NULL));
+    while (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) {printf("...\n");sleep(rand()%3);}
+    printf("%s %s:%d...\n", s, ipAddress, port);
 }
 
-bool askVerbose() {
+bool askBool(const char* prompt) {
     char temp;
-    printf("Print matrix? [Y/N]: ");
+    printf("%s [Y/N]: ", prompt);
     scanf(" %c", &temp);
     if (temp == 'Y') return true;
     return false;
 }
 
+void runInCore(int core) {
+    cpu_set_t cpu_set;
+    CPU_ZERO(&cpu_set);
+    CPU_SET(core, &cpu_set);
+    int ret = sched_setaffinity(0, sizeof(cpu_set_t), &cpu_set);
+    if (ret != 0) perror("sched_setaffinity");
+    printf("Running on core %d\n", core);
+}
+
 int main(int argc, char *argv[]) {
-    
     // reading the config
     int numberOfSlaves, hostPort;
+    int numOfCores = sysconf(_SC_NPROCESSORS_ONLN);
     char* hostIp = (char*)malloc(sizeof(char)*16);
     FILE* fp = fopen("config.txt", "r");
     if (fp == NULL) {
-        printf("Failed to open the config file...");
+        printf("Failed to open the config file...\n");
         exit(0);
     }
     fscanf(fp, "%d\n", &numberOfSlaves);
@@ -327,37 +334,52 @@ int main(int argc, char *argv[]) {
     char temp, s;
 	struct sockaddr_in servaddr, cli; 
 
-    printf("s [0/1]: ");
+    bool isCoreAffine = askBool("Core-Affine?");
+    // bool isCoreAffine = true;
+
+    printf("s [ 0:Master / 1:Slave ]: ");
     scanf(" %c", &s);
 
     if (s == '0') {
         printf("\n==== MASTER ====\n");
 
+        if (isCoreAffine) runInCore(1);
+
         printf("n: ");
         scanf("%d", &n);
-        bool verbose = askVerbose();
+        // n = 20000;
+        // bool verbose = askBool("Print Matrix?");
+        bool verbose = false;
 
-        float* v = (float*)malloc(sizeof(float)*n);
         int** matrix = generateRandomMatrix(n);
         int* y = generateRandomY(n);
         if(verbose) printY(y, n);
         int*** subMatrices = splitMatrix(matrix, numberOfSlaves, n);
         if(verbose) printSubmatrices(subMatrices, numberOfSlaves, n/numberOfSlaves, n);
+        for (int i=0; i<n; i++) free(matrix[i]);
+        free(matrix);
 
         struct timespec start;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
         for (int i=0; i<numberOfSlaves; i++) {
             sockfd = createSocket(&servaddr, slavesPort[i], slavesIp[i]);
-            connectSocket(sockfd, &servaddr, slavesIp[i], slavesPort[i]);
+            connectSocket(sockfd, &servaddr, slavesIp[i], slavesPort[i], "Sending the matrix to the slave");
             masterFunc(sockfd, y, n, n/numberOfSlaves, subMatrices[i]);
         	close(sockfd);
+            for (int j=0; j<n; j++) free(subMatrices[i][j]);
+            free(subMatrices[i]);
         }
 
+        printf("\nSuccessfully sent all matrices to the slaves!\n\n");
+
+        float* v = (float*)malloc(sizeof(float)*n);
         sockfd = createSocket(&servaddr, hostPort, hostIp);
         bindSocket(sockfd, &servaddr);
         for (int i=0; i<numberOfSlaves; i++) {
-        connfd = listenSocket(sockfd, &cli);
+            char s[70];
+            sprintf(s, "Waiting for the slave%d to send the computed pearson...", i);
+            connfd = listenSocket(sockfd, &cli, s, "Received the pearson from the slave!");
             masterFunc2(connfd, v);
         }
         close(sockfd);
@@ -365,11 +387,10 @@ int main(int argc, char *argv[]) {
         struct timespec end;
         clock_gettime(CLOCK_MONOTONIC, &end);
         if(verbose) printResult(v, n);
-        printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
+        printf("\ntime: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
 
         // printf("\n=== Compiled ===\n");
         // for (int i=0; i<n; i++) printf("%lf ", v[i]);
-
 
     } else if (s == '1') {
         printf("\n==== SLAVE ====\n");
@@ -377,17 +398,22 @@ int main(int argc, char *argv[]) {
         printf("Slave Number [0-%d]: ", numberOfSlaves-1);
         scanf("%d", &slaveNumber);
 
+        if (isCoreAffine) runInCore((slaveNumber+1)%numOfCores);
+        
         sockfd = createSocket(&servaddr, slavesPort[slaveNumber], INADDR_ANY);
         bindSocket(sockfd, &servaddr);
-        connfd = listenSocket(sockfd, &cli);
+        connfd = listenSocket(sockfd, &cli, "Waiting for the master to send the matrix...", "Received the matrix from the master!");
         int* n = (int*)malloc(sizeof(int));
         float* v = slaveFunc(connfd, n); 
         close(sockfd);
+        // sleep(20);
 
+        printf("\nSolved the pearson of the matrix!\n\n");
+        
         sockfd = createSocket(&servaddr, hostPort, hostIp);
-        connectSocket(sockfd, &servaddr, hostIp, hostPort);
-        // printf("len=%d\n", (int)*n);
+        connectSocket(sockfd, &servaddr, hostIp, hostPort, "Sending the pearson to the master");
         slaveFunc2(sockfd, v, (int)*n, &slaveNumber);
+        printf("Successfully sent the pearson to the master!\n");
         close(sockfd);
 
     } else { printf("Invalid s input!"); }
