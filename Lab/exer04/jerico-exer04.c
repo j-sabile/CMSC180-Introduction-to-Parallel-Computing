@@ -192,11 +192,6 @@ float* slaveFunc(int connfd, int* n) {
     for(int i=0; i<m; i++) read(connfd, matrix[i], sizeof(int)*(int)*n);
     int ack = 1;
     write(connfd, &ack, sizeof(int));
-    printf("\nPrinting the matrix received\n");
-    for(int i=0; i<m; i++) {
-        for (int j=0; j<(int)*n; j++) printf("%d ", matrix[i][j]);
-        printf("\n");
-    }
 
     pearson_cor_basic(matrix, y, v, m, (int)*n);
     for (int i=0; i<m; i++) free(matrix[i]);
@@ -244,7 +239,7 @@ void masterFunc2(int connfd, float* v) {
     free(temp);
 }
 
-int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr) {
+int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr, bool isClient) {
     int sockfd;
 
     // socket create and verification
@@ -258,7 +253,7 @@ int createSocket(struct sockaddr_in* servaddr, int port, const char* ip_addr) {
 
     // // Assign IP and PORT
     servaddr->sin_family = AF_INET;
-    if (ip_addr) servaddr->sin_addr.s_addr = inet_addr(ip_addr); // Convert IP address string to binary form
+    if (isClient) {servaddr->sin_addr.s_addr = inet_addr(ip_addr); printf("%s %d\n", ip_addr, port);} // Convert IP address string to binary form
     else servaddr->sin_addr.s_addr = htonl(INADDR_ANY); // Use INADDR_ANY for any available IP
     servaddr->sin_port = htons(port);
 
@@ -293,7 +288,7 @@ int listenSocket(int sockfd, struct sockaddr_in* cli, const char* s1, const char
 
 void connectSocket(int sockfd, struct sockaddr_in* servaddr, char* ipAddress, int port, const char* s) {
     srand(time(NULL));
-    while (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) {printf("...\n");sleep(rand()%3);}
+    while (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) {printf("Connecting to %s:%d...\n", ipAddress, port);sleep(rand()%3);}
     printf("%s %s:%d...\n", s, ipAddress, port);
 }
 
@@ -339,8 +334,8 @@ int main(int argc, char *argv[]) {
     char temp, s;
 	struct sockaddr_in servaddr, cli; 
 
-    // bool isCoreAffine = askBool("Core-Affine?");
-    bool isCoreAffine = false;
+    bool isCoreAffine = askBool("Core-Affine?");
+    // bool isCoreAffine = true;
 
     printf("s [ 0:Master / 1:Slave ]: ");
     scanf(" %c", &s);
@@ -368,7 +363,7 @@ int main(int argc, char *argv[]) {
         clock_gettime(CLOCK_MONOTONIC, &start);
 
         for (int i=0; i<numberOfSlaves; i++) {
-            sockfd = createSocket(&servaddr, slavesPort[i], slavesIp[i]);
+            sockfd = createSocket(&servaddr, slavesPort[i], slavesIp[i], true);
             connectSocket(sockfd, &servaddr, slavesIp[i], slavesPort[i], "Sending the matrix to the slave");
             masterFunc(sockfd, y, n, n/numberOfSlaves, subMatrices[i]);
         	close(sockfd);
@@ -379,14 +374,13 @@ int main(int argc, char *argv[]) {
         printf("\nSuccessfully sent all matrices to the slaves!\n\n");
 
         float* v = (float*)malloc(sizeof(float)*n);
-        sockfd = createSocket(&servaddr, hostPort, hostIp);
+        sockfd = createSocket(&servaddr, hostPort, INADDR_ANY, false);
         bindSocket(sockfd, &servaddr);
         for (int i=0; i<numberOfSlaves; i++) {
             char s[70];
             sprintf(s, "Waiting for the slave%d to send the computed pearson...", i);
-            connfd = listenSocket(sockfd, &cli, s, "The master is receiving from pearson from the slave!");
+            connfd = listenSocket(sockfd, &cli, s, "Received the pearson from the slave!");
             masterFunc2(connfd, v);
-            printf("The master \n");
         }
         close(sockfd);
 
@@ -406,18 +400,17 @@ int main(int argc, char *argv[]) {
 
         if (isCoreAffine) runInCore((slaveNumber+1)%numOfCores);
         
-        sockfd = createSocket(&servaddr, slavesPort[slaveNumber], INADDR_ANY);
+        sockfd = createSocket(&servaddr, slavesPort[slaveNumber], INADDR_ANY, false);
         bindSocket(sockfd, &servaddr);
-        connfd = listenSocket(sockfd, &cli, "Waiting for the master to send the matrix...", "Receiving the matrix from the master!");
+        connfd = listenSocket(sockfd, &cli, "Waiting for the master to send the matrix...", "Received the matrix from the master!");
         int* n = (int*)malloc(sizeof(int));
         float* v = slaveFunc(connfd, n); 
-        printf("Received the matrix from the master!\n");
         close(sockfd);
         // sleep(20);
 
         printf("\nSolved the pearson of the matrix!\n\n");
         
-        sockfd = createSocket(&servaddr, hostPort, hostIp);
+        sockfd = createSocket(&servaddr, hostPort, hostIp, true);
         connectSocket(sockfd, &servaddr, hostIp, hostPort, "Sending the pearson to the master");
         slaveFunc2(sockfd, v, (int)*n, &slaveNumber);
         printf("Successfully sent the pearson to the master!\n");
@@ -425,52 +418,5 @@ int main(int argc, char *argv[]) {
 
     } else { printf("Invalid s input!"); }
 
-    // printf("Size: ");
-    // scanf("%d", &size);
-    // printf("# of threads: ");
-    // scanf("%d", &numOfThreads);
-
-    // printf("Print matrix? [Y/N]: ");
-    // scanf(" %c", &temp);
-    // if (temp == 'Y') { verbose = true; }
-
-    // float* v = (float*)malloc(sizeof(float)*size);
-    // int** matrix = generateRandomMatrix(size);
-    // int* y = generateRandomY(size);
-    // if(verbose) printY(y, size);
-
-    // pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
-    
-    // int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-    // if(verbose) printSubmatrices(subMatrices, numOfThreads, size/numOfThreads, size);
-
-    // args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
-
-    // struct timespec start;
-    // clock_gettime(CLOCK_MONOTONIC, &start);
-
-    // long resSumY = sumY(y,size);
-    // long resSumY2 = sumY2(y,size);
-    // long resSumY_2 = pow(resSumY,2);
-    // for(int i=0; i<numOfThreads; i++) {
-    //     argsArray[i].X = subMatrices[i];
-    //     argsArray[i].y = y;
-    //     argsArray[i].resSumY = resSumY;
-    //     argsArray[i].resSumY2 = resSumY2;
-    //     argsArray[i].resSumY_2 = resSumY_2;
-    //     argsArray[i].colSize = size;
-    //     argsArray[i].rowSize = size/numOfThreads;
-    //     argsArray[i].threadNum = i;
-    //     argsArray[i].numCores = num_cores;
-    //     argsArray[i].v = v;
-    //     pthread_create(&tid[i], NULL, pearson_cor, (void*)&argsArray[i]);
-    // }
-
-    // for(int i=0; i<numOfThreads; i++) pthread_join(tid[i], NULL);
-    
-    // struct timespec end;
-    // clock_gettime(CLOCK_MONOTONIC, &end);
-    // if(verbose) printResult(v, size);
-    // printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
     return 0;
 }
