@@ -92,6 +92,19 @@ int** generateRandomMatrix(int size) {
     return temp;
 }
 
+int*** generateRandomMatrices(int matrices, int m, int n) {
+    srand(time(NULL)); 
+    int*** temp = (int***)malloc(sizeof(int**)*matrices);
+    for (int i=0; i<matrices; i++) {
+        temp[i] = (int**)malloc(sizeof(int*)*m);
+        for (int j=0; j<m; j++) {
+            temp[i][j] = (int*)malloc(sizeof(int)*n);
+            for (int k=0; k<n; k++) temp[i][j][k] = rand()%100+1;
+        }
+    }
+    return temp;
+}
+
 int* generateRandomY(int size){
     srand(time(NULL)); 
     int* temp = (int*)malloc(sizeof(int)*size);
@@ -356,13 +369,14 @@ int main(int argc, char *argv[]) {
         // bool verbose = askBool("Print Matrix?");
         bool verbose = false;
 
-        int** matrix = generateRandomMatrix(n);
+        // int** matrix = generateRandomMatrix(n);
         int* y = generateRandomY(n);
         if(verbose) printY(y, n);
-        int*** subMatrices = splitMatrix(matrix, numberOfSlaves, n);
+        // int*** subMatrices = splitMatrix(matrix, numberOfSlaves, n);
+        int*** subMatrices = generateRandomMatrices(numberOfSlaves, n, n/numberOfSlaves);
         if(verbose) printSubmatrices(subMatrices, numberOfSlaves, n/numberOfSlaves, n);
-        for (int i=0; i<n; i++) free(matrix[i]);
-        free(matrix);
+        // for (int i=0; i<n; i++) free(matrix[i]);
+        // free(matrix);
 
         struct timespec start;
         clock_gettime(CLOCK_MONOTONIC, &start);
