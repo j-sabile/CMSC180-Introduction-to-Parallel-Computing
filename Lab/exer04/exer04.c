@@ -10,7 +10,7 @@
 #include <stdbool.h>
 
 #include <arpa/inet.h> // inet_addr()
-#include <unistd.h> // read(), write(), close()
+#include <unistd.h> // recv(), send(), close()
 #include <strings.h> // bzero()
 #include <netdb.h> 
 #include <netinet/in.h> 
@@ -180,16 +180,16 @@ void pearson_cor_basic(int** X, int* y, float* v, int m, int n) {
 
 float* slaveFunc(int connfd, int* n) {
     int m; 
-    read(connfd, &m, sizeof(int));
-    read(connfd, n, sizeof(int));
+    recv(connfd, &m, sizeof(int), MSG_WAITALL);
+    recv(connfd, n, sizeof(int), MSG_WAITALL);
 
     int* y = (int*)malloc(sizeof(int)*m);
     float* v = (float*)malloc(sizeof(float)*(int)*n);
     int** matrix = (int**)malloc(sizeof(int*)*m);
     for(int i=0; i<m; i++) matrix[i] = (int*)malloc(sizeof(int)*(int)*n);
     
-    read(connfd, y, sizeof(int)*m);
-    for(int i=0; i<m; i++) read(connfd, matrix[i], sizeof(int)*(int)*n);
+    recv(connfd, y, sizeof(int)*m, MSG_WAITALL);
+    for(int i=0; i<m; i++) recv(connfd, matrix[i], sizeof(int)*(int)*n, MSG_WAITALL);
     int ack = 1;
     write(connfd, &ack, sizeof(int));
     printf("\nPrinting the matrix received\n");
@@ -210,28 +210,28 @@ float* slaveFunc(int connfd, int* n) {
 
 void slaveFunc2(int sockfd, float* v, int len, int* slaveNumber) {
     // printf("sending: %d %d ", (int)*slaveNumber, len);
-    write(sockfd, slaveNumber, sizeof(int));
-    write(sockfd, &len, sizeof(int));
-    write(sockfd, v, sizeof(float)*len);
+    send(sockfd, slaveNumber, sizeof(int), MSG_WAITALL);
+    send(sockfd, &len, sizeof(int), MSG_WAITALL);
+    send(sockfd, v, sizeof(float)*len, MSG_WAITALL);
 }
 
 void masterFunc(int sockfd, int* y, int m, int n, int** subMatrix) {
     int ack;
-    write(sockfd, &m, sizeof(int));
-    write(sockfd, &n, sizeof(int));
+    send(sockfd, &m, sizeof(int), MSG_WAITALL);
+    send(sockfd, &n, sizeof(int), MSG_WAITALL);
 
-    write(sockfd, y, sizeof(int)*m);
-    for (int i=0; i<m; i++) write(sockfd, subMatrix[i], sizeof(int)*n);
-    read(sockfd, &ack, sizeof(int));
+    send(sockfd, y, sizeof(int)*m, MSG_WAITALL);
+    for (int i=0; i<m; i++) send(sockfd, subMatrix[i], sizeof(int)*n, MSG_WAITALL);
+    recv(sockfd, &ack, sizeof(int), MSG_WAITALL);
     printf("Successfully sent the matrix!\n");
 }
 
 void masterFunc2(int connfd, float* v) {
     int slaveNumber, len;
-    read(connfd, &slaveNumber, sizeof(int));
-    read(connfd, &len, sizeof(int));
+    recv(connfd, &slaveNumber, sizeof(int), MSG_WAITALL);
+    recv(connfd, &len, sizeof(int), MSG_WAITALL);
     float* temp = (float*)malloc(sizeof(float)*len);
-    read(connfd, temp, sizeof(float)*len);
+    recv(connfd, temp, sizeof(float)*len, MSG_WAITALL);
     // printf("len=%d, sl#=%d\n", len, slaveNumber);
     // printf("temp=");
     // for(int i=0; i<len; i++) printf("%lf ", temp[i]);
@@ -425,52 +425,5 @@ int main(int argc, char *argv[]) {
 
     } else { printf("Invalid s input!"); }
 
-    // printf("Size: ");
-    // scanf("%d", &size);
-    // printf("# of threads: ");
-    // scanf("%d", &numOfThreads);
-
-    // printf("Print matrix? [Y/N]: ");
-    // scanf(" %c", &temp);
-    // if (temp == 'Y') { verbose = true; }
-
-    // float* v = (float*)malloc(sizeof(float)*size);
-    // int** matrix = generateRandomMatrix(size);
-    // int* y = generateRandomY(size);
-    // if(verbose) printY(y, size);
-
-    // pthread_t* tid = (pthread_t*)malloc(sizeof(pthread_t)*numOfThreads);
-    
-    // int*** subMatrices = splitMatrix(matrix, numOfThreads, size);
-    // if(verbose) printSubmatrices(subMatrices, numOfThreads, size/numOfThreads, size);
-
-    // args_st *argsArray = (args_st*)malloc(sizeof(args_st)*numOfThreads);
-
-    // struct timespec start;
-    // clock_gettime(CLOCK_MONOTONIC, &start);
-
-    // long resSumY = sumY(y,size);
-    // long resSumY2 = sumY2(y,size);
-    // long resSumY_2 = pow(resSumY,2);
-    // for(int i=0; i<numOfThreads; i++) {
-    //     argsArray[i].X = subMatrices[i];
-    //     argsArray[i].y = y;
-    //     argsArray[i].resSumY = resSumY;
-    //     argsArray[i].resSumY2 = resSumY2;
-    //     argsArray[i].resSumY_2 = resSumY_2;
-    //     argsArray[i].colSize = size;
-    //     argsArray[i].rowSize = size/numOfThreads;
-    //     argsArray[i].threadNum = i;
-    //     argsArray[i].numCores = num_cores;
-    //     argsArray[i].v = v;
-    //     pthread_create(&tid[i], NULL, pearson_cor, (void*)&argsArray[i]);
-    // }
-
-    // for(int i=0; i<numOfThreads; i++) pthread_join(tid[i], NULL);
-    
-    // struct timespec end;
-    // clock_gettime(CLOCK_MONOTONIC, &end);
-    // if(verbose) printResult(v, size);
-    // printf("time: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
     return 0;
 }
