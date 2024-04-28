@@ -384,9 +384,8 @@ int main(int argc, char *argv[]) {
         for (int i=0; i<numberOfSlaves; i++) {
             char s[70];
             sprintf(s, "Waiting for the slave%d to send the computed pearson...", i);
-            connfd = listenSocket(sockfd, &cli, s, "The master is receiving from pearson from the slave!");
+            connfd = listenSocket(sockfd, &cli, s, "The master is receiving the pearson from the slave!");
             masterFunc2(connfd, v);
-            printf("The master \n");
         }
         close(sockfd);
 
