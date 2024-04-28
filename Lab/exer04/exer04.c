@@ -192,7 +192,7 @@ float* slaveFunc(int connfd, int* n) {
     for(int i=0; i<m; i++) recv(connfd, matrix[i], sizeof(int)*(int)*n, MSG_WAITALL);
     int ack = 1;
     write(connfd, &ack, sizeof(int));
-    printf("\nPrinting the matrix received\n");
+    // printf("\nPrinting the matrix received\n");
     // for(int i=0; i<m; i++) {
     //     for (int j=0; j<(int)*n; j++) printf("%d ", matrix[i][j]);
     //     printf("\n");
