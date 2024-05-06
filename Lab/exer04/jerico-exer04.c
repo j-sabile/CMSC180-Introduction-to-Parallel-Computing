@@ -217,7 +217,7 @@ int receive_data(int sockfd, void *buffer, size_t length, size_t element_size) {
     return 0;
 }
 
-float* slaveFunc(int connfd, int* n) {
+void slaveFunc(int connfd, int* n) {
     int m; 
     receive_data(connfd, &m, 1, sizeof(int));
     receive_data(connfd, n, 1, sizeof(int));
@@ -241,15 +241,16 @@ float* slaveFunc(int connfd, int* n) {
     // for(int i=0; i<m; i++) read(connfd, matrix[i], sizeof(int)*(int)*n);
     // int ack = 1;
     // write(connfd, &ack, sizeof(int));
+    printf("Received the matrix from the master!\n");
 
-    pearson_cor_basic(matrix, y, v, m, (int)*n);
+    // pearson_cor_basic(matrix, y, v, m, (int)*n);
     for (int i=0; i<m; i++) free(matrix[i]);
     free(matrix);
     // printf("answers:\n");
     // for(int i=0; i<(int)*n; i++) printf("%lf ", v[i]);
     // printf("\n");
 
-    return v;
+    // return v;
 }
 
 void slaveFunc2(int sockfd, float* v, int len, int* slaveNumber) {
@@ -358,7 +359,8 @@ int listenSocket(int sockfd, struct sockaddr_in* cli, const char* s1, const char
 
 void connectSocket(int sockfd, struct sockaddr_in* servaddr, char* ipAddress, int port, const char* s) {
     srand(time(NULL));
-    while (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) {printf("Connecting to %s:%d...\n", ipAddress, port);sleep(rand()%3);}
+    printf("Connecting to %s:%d...\n", ipAddress, port);
+    while (connect(sockfd, (SA*)servaddr, sizeof(*servaddr)) != 0) {sleep(rand()%3);}
     printf("%s %s:%d...\n", s, ipAddress, port);
 }
 
@@ -445,20 +447,20 @@ int main(int argc, char *argv[]) {
 
         printf("\nSuccessfully sent all matrices to the slaves!\n\n");
 
-        float* v = (float*)malloc(sizeof(float)*n);
-        sockfd = createSocket(&servaddr, hostPort, INADDR_ANY, false);
-        bindSocket(sockfd, &servaddr);
-        for (int i=0; i<numberOfSlaves; i++) {
-            char s[70];
-            sprintf(s, "Waiting for the slave%d to send the computed pearson...", i);
-            connfd = listenSocket(sockfd, &cli, s, "Receiving the pearson from the slave!");
-            masterFunc2(connfd, v);
-        }
-        close(sockfd);
+        // float* v = (float*)malloc(sizeof(float)*n);
+        // sockfd = createSocket(&servaddr, hostPort, INADDR_ANY, false);
+        // bindSocket(sockfd, &servaddr);
+        // for (int i=0; i<numberOfSlaves; i++) {
+        //     char s[70];
+        //     sprintf(s, "Waiting for the slave%d to send the computed pearson...", i);
+        //     connfd = listenSocket(sockfd, &cli, s, "Receiving the pearson from the slave!");
+        //     masterFunc2(connfd, v);
+        // }
+        // close(sockfd);
 
         struct timespec end;
         clock_gettime(CLOCK_MONOTONIC, &end);
-        if(verbose) printResult(v, n);
+        // if(verbose) printResult(v, n);
         printf("\ntime: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
 
         // printf("\n=== Compiled ===\n");
@@ -476,17 +478,16 @@ int main(int argc, char *argv[]) {
         bindSocket(sockfd, &servaddr);
         connfd = listenSocket(sockfd, &cli, "Waiting for the master to send the matrix...", "Receiving the matrix from the master!");
         int* n = (int*)malloc(sizeof(int));
-        float* v = slaveFunc(connfd, n); 
-        close(sockfd);
-        // sleep(20);
+        slaveFunc(connfd, n); 
+        // close(connfd);
 
-        printf("\nSolved the pearson of the matrix!\n\n");
+        // printf("\nSolved the pearson of the matrix!\n\n");
         
-        sockfd = createSocket(&servaddr, hostPort, hostIp, true);
-        connectSocket(sockfd, &servaddr, hostIp, hostPort, "Sending the pearson to the master");
-        slaveFunc2(sockfd, v, (int)*n, &slaveNumber);
-        printf("Successfully sent the pearson to the master!\n");
-        close(sockfd);
+        // sockfd = createSocket(&servaddr, hostPort, hostIp, true);
+        // connectSocket(sockfd, &servaddr, hostIp, hostPort, "Sending the pearson to the master");
+        // slaveFunc2(sockfd, v, (int)*n, &slaveNumber);
+        // printf("Successfully sent the pearson to the master!\n");
+        // close(sockfd);
 
     } else { printf("Invalid s input!"); }
 
@@ -495,8 +496,6 @@ int main(int argc, char *argv[]) {
 
 // scp user@10.0.4.108:~/Desktop/jerico .
 // scp user@10.0.4.108:~/Desktop/jerico-config.txt .
-
-
 
 // 10.0.5.27 drone01.swarm.ics.uplb.edu.ph drone01 computeling01
 // 10.0.5.30 drone02.swarm.ics.uplb.edu.ph drone02 computeling02
@@ -508,18 +507,26 @@ int main(int argc, char *argv[]) {
 // 10.0.4.88 drone07.swarm.ics.uplb.edu.ph drone07 computeling07
 // 10.0.4.94 drone08.swarm.ics.uplb.edu.ph drone08 computeling08
 
-// 10.0.4.84 drone09.swarm.ics.uplb.edu.ph drone09 computeling09 XXX
+// 10.0.4.84 drone09.swarm.ics.uplb.edu.ph drone09 computeling09 XXX 1
 // 10.0.4.80 drone10.swarm.ics.uplb.edu.ph drone10 computeling10
-// 10.0.4.87 drone11.swarm.ics.uplb.edu.ph drone11 computeling11 XXX
+// 10.0.4.87 drone11.swarm.ics.uplb.edu.ph drone11 computeling11 XXX 2
 // 10.0.4.81 drone12.swarm.ics.uplb.edu.ph drone12 computeling12 
 
-// 10.0.4.225 drone13.swarm.ics.uplb.edu.ph drone13 computeling13 XXX
+// 10.0.4.225 drone13.swarm.ics.uplb.edu.ph drone13 computeling13 XXX 3
 // 10.0.4.227 drone14.swarm.ics.uplb.edu.ph drone14 computeling14 
-// 10.0.4.228 drone15.swarm.ics.uplb.edu.ph drone15 computeling15 XXX
+// 10.0.4.228 drone15.swarm.ics.uplb.edu.ph drone15 computeling15 XXX 4
 // 10.0.5.123 drone16.swarm.ics.uplb.edu.ph drone16 computeling16
 
-// 10.0.5.166 drone17.swarm.ics.uplb.edu.ph drone17 computeling17
-// 10.0.5.168 drone18.swarm.ics.uplb.edu.ph drone18 computeling18
-// 10.0.4.119 drone19.swarm.ics.uplb.edu.ph drone19 computeling19
-// 10.0.4.120 drone20.swarm.ics.uplb.edu.ph drone20 computeling20
+// 10.0.5.166 drone17.swarm.ics.uplb.edu.ph drone17 computeling17 XXX 5
+// 10.0.5.168 drone18.swarm.ics.uplb.edu.ph drone18 computeling18 XXX 6
+// 10.0.4.119 drone19.swarm.ics.uplb.edu.ph drone19 computeling19 XXX 7
+// 10.0.4.120 drone20.swarm.ics.uplb.edu.ph drone20 computeling20 XXX 8
+
 // 10.0.4.124 drone21.swarm.ics.uplb.edu.ph drone21 computeling21
+// 10.0.5.14  drone22.swarm.ics.uplb.edu.ph drone22 computeling22
+// 10.0.5.9   drone23.swarm.ics.uplb.edu.ph drone23 computeling23
+// 10.0.5.11  drone24.swarm.ics.uplb.edu.ph drone24 computeling24
+
+// 10.0.5.143 drone25.swarm.ics.uplb.edu.ph drone25 computeling25
+// 10.0.5.144 drone26.swarm.ics.uplb.edu.ph drone26 computeling26
+// 10.0.5.145 drone27.swarm.ics.uplb.edu.ph drone27 computeling27
