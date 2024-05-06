@@ -15,6 +15,9 @@
 #include <netdb.h> 
 #include <netinet/in.h> 
 
+#include <string.h>
+#include <sys/socket.h>
+
 #define SA struct sockaddr 
 #define MAX 80 
 #define PORT 8082
@@ -165,10 +168,6 @@ void printResult(float* v, int size) {
     printf("\n");
 }
 
-void func(int sockfd) {
-
-}
-
 void pearson_cor_basic(int** X, int* y, float* v, int m, int n) {
     long resSumY = sumY(y,m);
     long resSumY2 = sumY2(y,m);
@@ -178,20 +177,70 @@ void pearson_cor_basic(int** X, int* y, float* v, int m, int n) {
     }
 }
 
+int send_data(int sockfd, const void *buffer, size_t length, size_t element_size) {
+    const char *ptr = (const char *)buffer;
+    size_t total_sent = 0;
+
+    while (total_sent < length * element_size) {
+        ssize_t bytes_sent = send(sockfd, ptr + total_sent, (length * element_size) - total_sent, 0);
+        if (bytes_sent <= 0) {
+            if (bytes_sent == 0) {
+                fprintf(stderr, "Connection closed by peer\n");
+            } else {
+                fprintf(stderr, "Error sending data: %s\n", strerror(errno));
+            }
+            return -1;
+        }
+        total_sent += bytes_sent;
+    }
+
+    return 0;
+}
+
+int receive_data(int sockfd, void *buffer, size_t length, size_t element_size) {
+    char *ptr = (char *)buffer;
+    size_t total_received = 0;
+
+    while (total_received < length * element_size) {
+        ssize_t bytes_received = recv(sockfd, ptr + total_received, (length * element_size) - total_received, 0);
+        if (bytes_received <= 0) {
+            if (bytes_received == 0) {
+                fprintf(stderr, "Connection closed by peer\n");
+            } else {
+                fprintf(stderr, "Error receiving data: %s\n", strerror(errno));
+            }
+            return -1;
+        }
+        total_received += bytes_received;
+    }
+
+    return 0;
+}
+
 float* slaveFunc(int connfd, int* n) {
     int m; 
-    read(connfd, &m, sizeof(int));
-    read(connfd, n, sizeof(int));
+    receive_data(connfd, &m, 1, sizeof(int));
+    receive_data(connfd, n, 1, sizeof(int));
+    // read(connfd, &m, sizeof(int));
+    // read(connfd, n, sizeof(int));
+    // printf("m=%d n=%d\n", m, *n);
 
     int* y = (int*)malloc(sizeof(int)*m);
     float* v = (float*)malloc(sizeof(float)*(int)*n);
     int** matrix = (int**)malloc(sizeof(int*)*m);
     for(int i=0; i<m; i++) matrix[i] = (int*)malloc(sizeof(int)*(int)*n);
     
-    read(connfd, y, sizeof(int)*m);
-    for(int i=0; i<m; i++) read(connfd, matrix[i], sizeof(int)*(int)*n);
+    receive_data(connfd, y, m, sizeof(int));
+    for(int i=0; i<m; i++) receive_data(connfd, matrix[i], (int)*n, sizeof(int));
     int ack = 1;
-    write(connfd, &ack, sizeof(int));
+    send_data(connfd, &ack, 1, sizeof(int));
+    
+    // for(int i=0; i<(int)*n; i++) printf("%d ", matrix[0][i]);
+
+    // read(connfd, y, sizeof(int)*m);
+    // for(int i=0; i<m; i++) read(connfd, matrix[i], sizeof(int)*(int)*n);
+    // int ack = 1;
+    // write(connfd, &ack, sizeof(int));
 
     pearson_cor_basic(matrix, y, v, m, (int)*n);
     for (int i=0; i<m; i++) free(matrix[i]);
@@ -205,28 +254,49 @@ float* slaveFunc(int connfd, int* n) {
 
 void slaveFunc2(int sockfd, float* v, int len, int* slaveNumber) {
     // printf("sending: %d %d ", (int)*slaveNumber, len);
-    write(sockfd, slaveNumber, sizeof(int));
-    write(sockfd, &len, sizeof(int));
-    write(sockfd, v, sizeof(float)*len);
+    send_data(sockfd, slaveNumber, 1, sizeof(int));
+    send_data(sockfd, &len, 1, sizeof(int));
+    send_data(sockfd, v, len, sizeof(int));
+
+    // write(sockfd, slaveNumber, sizeof(int));
+    // write(sockfd, &len, sizeof(int));
+    // write(sockfd, v, sizeof(float)*len);
 }
 
 void masterFunc(int sockfd, int* y, int m, int n, int** subMatrix) {
     int ack;
-    write(sockfd, &m, sizeof(int));
-    write(sockfd, &n, sizeof(int));
+    send_data(sockfd, &m, 1, sizeof(int));
+    send_data(sockfd, &n, 1, sizeof(int));
 
-    write(sockfd, y, sizeof(int)*m);
-    for (int i=0; i<m; i++) write(sockfd, subMatrix[i], sizeof(int)*n);
-    read(sockfd, &ack, sizeof(int));
+    // write(sockfd, &m, sizeof(int));
+    // write(sockfd, &n, sizeof(int));
+
+    send_data(sockfd, y, m, sizeof(int));
+    for (int i=0; i<m; i++) send_data(sockfd, subMatrix[i], n, sizeof(int));
+    receive_data(sockfd, &ack, 1, sizeof(int));
     printf("Successfully sent the matrix!\n");
+
+
+    // write(sockfd, y, sizeof(int)*m);
+    // for (int i=0; i<m; i++) write(sockfd, subMatrix[i], sizeof(int)*n);
+    // read(sockfd, &ack, sizeof(int));
+    // printf("Successfully sent the matrix!\n");
 }
 
 void masterFunc2(int connfd, float* v) {
     int slaveNumber, len;
-    read(connfd, &slaveNumber, sizeof(int));
-    read(connfd, &len, sizeof(int));
+
+    receive_data(connfd, &slaveNumber, 1, sizeof(int));
+    receive_data(connfd, &len, 1, sizeof(int));
     float* temp = (float*)malloc(sizeof(float)*len);
-    read(connfd, temp, sizeof(float)*len);
+    receive_data(connfd, temp, len, sizeof(int));
+
+    // read(connfd, &slaveNumber, sizeof(int));
+    // read(connfd, &len, sizeof(int));
+    // float* temp = (float*)malloc(sizeof(float)*len);
+    // read(connfd, temp, sizeof(float)*len);
+    
+    
     // printf("len=%d, sl#=%d\n", len, slaveNumber);
     // printf("temp=");
     // for(int i=0; i<len; i++) printf("%lf ", temp[i]);
@@ -309,6 +379,8 @@ void runInCore(int core) {
     printf("Running on core %d\n", core);
 }
 
+
+
 int main(int argc, char *argv[]) {
     // reading the config
     int numberOfSlaves, hostPort;
@@ -379,7 +451,7 @@ int main(int argc, char *argv[]) {
         for (int i=0; i<numberOfSlaves; i++) {
             char s[70];
             sprintf(s, "Waiting for the slave%d to send the computed pearson...", i);
-            connfd = listenSocket(sockfd, &cli, s, "Received the pearson from the slave!");
+            connfd = listenSocket(sockfd, &cli, s, "Receiving the pearson from the slave!");
             masterFunc2(connfd, v);
         }
         close(sockfd);
@@ -402,7 +474,7 @@ int main(int argc, char *argv[]) {
         
         sockfd = createSocket(&servaddr, slavesPort[slaveNumber], INADDR_ANY, false);
         bindSocket(sockfd, &servaddr);
-        connfd = listenSocket(sockfd, &cli, "Waiting for the master to send the matrix...", "Received the matrix from the master!");
+        connfd = listenSocket(sockfd, &cli, "Waiting for the master to send the matrix...", "Receiving the matrix from the master!");
         int* n = (int*)malloc(sizeof(int));
         float* v = slaveFunc(connfd, n); 
         close(sockfd);
@@ -420,3 +492,34 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+// scp user@10.0.4.108:~/Desktop/jerico .
+// scp user@10.0.4.108:~/Desktop/jerico-config.txt .
+
+
+
+// 10.0.5.27 drone01.swarm.ics.uplb.edu.ph drone01 computeling01
+// 10.0.5.30 drone02.swarm.ics.uplb.edu.ph drone02 computeling02
+// 10.0.5.32 drone03.swarm.ics.uplb.edu.ph drone03 computeling03
+// 10.0.4.47 drone04.swarm.ics.uplb.edu.ph drone04 computeling04
+
+// 10.0.4.46 drone05.swarm.ics.uplb.edu.ph drone05 computeling05
+// 10.0.4.45 drone06.swarm.ics.uplb.edu.ph drone06 computeling06
+// 10.0.4.88 drone07.swarm.ics.uplb.edu.ph drone07 computeling07
+// 10.0.4.94 drone08.swarm.ics.uplb.edu.ph drone08 computeling08
+
+// 10.0.4.84 drone09.swarm.ics.uplb.edu.ph drone09 computeling09 XXX
+// 10.0.4.80 drone10.swarm.ics.uplb.edu.ph drone10 computeling10
+// 10.0.4.87 drone11.swarm.ics.uplb.edu.ph drone11 computeling11 XXX
+// 10.0.4.81 drone12.swarm.ics.uplb.edu.ph drone12 computeling12 
+
+// 10.0.4.225 drone13.swarm.ics.uplb.edu.ph drone13 computeling13 XXX
+// 10.0.4.227 drone14.swarm.ics.uplb.edu.ph drone14 computeling14 
+// 10.0.4.228 drone15.swarm.ics.uplb.edu.ph drone15 computeling15 XXX
+// 10.0.5.123 drone16.swarm.ics.uplb.edu.ph drone16 computeling16
+
+// 10.0.5.166 drone17.swarm.ics.uplb.edu.ph drone17 computeling17
+// 10.0.5.168 drone18.swarm.ics.uplb.edu.ph drone18 computeling18
+// 10.0.4.119 drone19.swarm.ics.uplb.edu.ph drone19 computeling19
+// 10.0.4.120 drone20.swarm.ics.uplb.edu.ph drone20 computeling20
+// 10.0.4.124 drone21.swarm.ics.uplb.edu.ph drone21 computeling21
