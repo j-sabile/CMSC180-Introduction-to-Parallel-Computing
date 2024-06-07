@@ -360,8 +360,7 @@ int main(int argc, char *argv[]) {
     char temp, s;
 	struct sockaddr_in servaddr, cli; 
 
-    // bool isCoreAffine = askBool("Core-Affine?");
-    bool isCoreAffine = false;
+    bool isCoreAffine = true;
 
     printf("s [ 0:Master / 1:Slave ]: ");
     scanf(" %c", &s);
@@ -373,18 +372,12 @@ int main(int argc, char *argv[]) {
 
         printf("n: ");
         scanf("%d", &n);
-        // n = 20000;
-        // bool verbose = askBool("Print Matrix?");
-        bool verbose = false;
+        bool verbose = askBool("Print Matrix?");
 
-        // int** matrix = generateRandomMatrix(n);
         int* y = generateRandomY(n);
         if(verbose) printY(y, n);
-        // int*** subMatrices = splitMatrix(matrix, numberOfSlaves, n);
         int*** subMatrices = generateRandomMatrices(numberOfSlaves, n, n/numberOfSlaves);
         if(verbose) printSubmatrices(subMatrices, numberOfSlaves, n/numberOfSlaves, n);
-        // for (int i=0; i<n; i++) free(matrix[i]);
-        // free(matrix);
 
         struct timespec start;
         clock_gettime(CLOCK_MONOTONIC, &start);
@@ -416,9 +409,6 @@ int main(int argc, char *argv[]) {
         if(verbose) printResult(v, n);
         printf("\ntime: %f seconds\n", (end.tv_sec-start.tv_sec) + (end.tv_nsec-start.tv_nsec) / 1000000000.0); 
 
-        // printf("\n=== Compiled ===\n");
-        // for (int i=0; i<n; i++) printf("%lf ", v[i]);
-
     } else if (s == '1') {
         printf("\n==== SLAVE ====\n");
 
@@ -434,7 +424,6 @@ int main(int argc, char *argv[]) {
         float* v = slaveFunc(connfd, n); 
         printf("Received the matrix from the master!\n");
         close(sockfd);
-        // sleep(20);
 
         printf("\nSolved the pearson of the matrix!\n\n");
         
